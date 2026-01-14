@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Exemple Google Maps - FasoMarket</title>
+    <script src="fasoMarketAPI.js"></script>
+</head>
+<body>
+    <div id="boutique-info"></div>
+    <button onclick="ouvrirItineraire()">📍 Obtenir l'itinéraire</button>
+    <button onclick="voirSurMaps()">🗺️ Voir sur Google Maps</button>
+
+    <script>
+        let boutique = null;
+
+        // Charger les informations de la boutique
+        async function chargerBoutique(boutiqueId) {
+            try {
+                const response = await fasoMarketAPI.shops.getItineraire(boutiqueId);
+                if (response.succes) {
+                    boutique = response.boutique;
+                    document.getElementById('boutique-info').innerHTML = `
+                        <h3>${boutique.nom_boutique}</h3>
+                        <p><strong>Adresse:</strong> ${boutique.adresse_complete}</p>
+                    `;
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+            }
+        }
+
+        // Ouvrir l'itinéraire dans Google Maps
+        function ouvrirItineraire() {
+            if (boutique && boutique.directions_url) {
+                fasoMarketAPI.shops.obtenirDirections(boutique.directions_url);
+            } else {
+                alert('Adresse de la boutique non disponible');
+            }
+        }
+
+        // Voir la boutique sur Google Maps
+        function voirSurMaps() {
+            if (boutique && boutique.google_maps_url) {
+                fasoMarketAPI.shops.ouvrirGoogleMaps(boutique.google_maps_url);
+            } else {
+                alert('Localisation de la boutique non disponible');
+            }
+        }
+
+        // Exemple d'utilisation
+        // chargerBoutique(1); // Remplacer par l'ID de la boutique
+    </script>
+</body>
+</html>

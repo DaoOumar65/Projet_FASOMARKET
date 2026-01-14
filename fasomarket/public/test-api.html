@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test API FasoMarket</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+        button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .result { margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 4px; }
+        .error { background: #f8d7da; color: #721c24; }
+        .success { background: #d4edda; color: #155724; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test API FasoMarket</h1>
+        
+        <h2>📝 Inscription Client</h2>
+        <form id="inscriptionForm">
+            <div class="form-group">
+                <label>Nom:</label>
+                <input type="text" id="nom" value="Ouédraogo" required>
+            </div>
+            <div class="form-group">
+                <label>Prénom:</label>
+                <input type="text" id="prenom" value="Aminata" required>
+            </div>
+            <div class="form-group">
+                <label>Téléphone:</label>
+                <input type="text" id="telephone" value="+22670123456" required>
+            </div>
+            <button type="submit">S'inscrire</button>
+        </form>
+        
+        <h2>🔐 Connexion Client</h2>
+        <form id="connexionForm">
+            <div class="form-group">
+                <label>Nom:</label>
+                <input type="text" id="nomConnexion" value="Ouédraogo" required>
+            </div>
+            <div class="form-group">
+                <label>Téléphone:</label>
+                <input type="text" id="telephoneConnexion" value="+22670123456" required>
+            </div>
+            <button type="submit">Se connecter</button>
+        </form>
+        
+        <h2>🌍 Boutiques Publiques</h2>
+        <button onclick="getBoutiques()">Voir les boutiques</button>
+        
+        <h2>🏷️ Catégories</h2>
+        <button onclick="getCategories()">Voir les catégories</button>
+        
+        <div id="result" class="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api';
+        
+        // Fonction pour afficher les résultats
+        function showResult(data, isError = false) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.className = `result ${isError ? 'error' : 'success'}`;
+            resultDiv.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+        }
+        
+        // Inscription client
+        document.getElementById('inscriptionForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const data = {
+                nom: document.getElementById('nom').value,
+                prenom: document.getElementById('prenom').value,
+                telephone: document.getElementById('telephone').value
+            };
+            
+            try {
+                const response = await fetch(`${API_BASE}/inscription-client`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                showResult(result, !response.ok);
+                
+                if (result.token) {
+                    localStorage.setItem('token', result.token);
+                    localStorage.setItem('user', JSON.stringify(result.utilisateur || result.user));
+                }
+            } catch (error) {
+                showResult({ error: error.message }, true);
+            }
+        });
+        
+        // Connexion client
+        document.getElementById('connexionForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const data = {
+                nom: document.getElementById('nomConnexion').value,
+                telephone: document.getElementById('telephoneConnexion').value
+            };
+            
+            try {
+                const response = await fetch(`${API_BASE}/connexion-client`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                showResult(result, !response.ok);
+                
+                if (result.token) {
+                    localStorage.setItem('token', result.token);
+                    localStorage.setItem('user', JSON.stringify(result.utilisateur || result.user));
+                }
+            } catch (error) {
+                showResult({ error: error.message }, true);
+            }
+        });
+        
+        // Boutiques publiques
+        async function getBoutiques() {
+            try {
+                const response = await fetch(`${API_BASE}/boutiques-publiques`);
+                const result = await response.json();
+                showResult(result, !response.ok);
+            } catch (error) {
+                showResult({ error: error.message }, true);
+            }
+        }
+        
+        // Catégories
+        async function getCategories() {
+            try {
+                const response = await fetch(`${API_BASE}/categories`);
+                const result = await response.json();
+                showResult(result, !response.ok);
+            } catch (error) {
+                showResult({ error: error.message }, true);
+            }
+        }
+        
+        // Afficher le token stocké au chargement
+        window.addEventListener('load', () => {
+            const token = localStorage.getItem('token');
+            const user = localStorage.getItem('user');
+            if (token) {
+                console.log('Token stocké:', token);
+                console.log('Utilisateur:', JSON.parse(user || '{}'));
+            }
+        });
+    </script>
+</body>
+</html>

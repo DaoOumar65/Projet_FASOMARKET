@@ -1,0 +1,72 @@
+{
+  "info": {
+    "name": "FasoMarket API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000/api"
+    },
+    {
+      "key": "token",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Inscription Vendeur",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nom\": \"Test\",\n  \"prenom\": \"User\",\n  \"numero_ifu\": \"123456789\",\n  \"telephone\": \"+22670000001\",\n  \"email\": \"test@example.com\"\n}"
+        },
+        "url": "{{base_url}}/inscription-vendeur"
+      }
+    },
+    {
+      "name": "Connexion",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nom\": \"Test\",\n  \"prenom\": \"User\",\n  \"telephone\": \"+22670000001\"\n}"
+        },
+        "url": "{{base_url}}/connexion"
+      }
+    },
+    {
+      "name": "Profil",
+      "request": {
+        "method": "GET",
+        "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+        "url": "{{base_url}}/profil"
+      }
+    },
+    {
+      "name": "Boutiques Publiques",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/boutiques-publiques"
+      }
+    },
+    {
+      "name": "Créer Boutique",
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key": "Authorization", "value": "Bearer {{token}}"},
+          {"key": "Content-Type", "value": "application/json"}
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nom_boutique\": \"Test Shop\",\n  \"description\": \"Test\",\n  \"adresse\": \"Test Address\",\n  \"ville\": \"Test City\",\n  \"pays\": \"Test Country\"\n}"
+        },
+        "url": "{{base_url}}/boutiques"
+      }
+    }
+  ]
+}
