@@ -19,8 +19,25 @@ public class Cart {
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 
+    @ManyToOne
+    @JoinColumn(name = "variante_id")
+    private ProduitVariante variante;
+
     @Column(name = "quantity", nullable = false)
     private Integer quantity;
+
+    // Options sélectionnées
+    @Column(name = "selected_color")
+    private String selectedColor;
+
+    @Column(name = "selected_size")
+    private String selectedSize;
+
+    @Column(name = "selected_model")
+    private String selectedModel;
+
+    @Column(name = "custom_options", columnDefinition = "TEXT")
+    private String customOptions; // JSON pour options supplémentaires
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
@@ -49,4 +66,19 @@ public class Cart {
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public String getSelectedColor() { return selectedColor; }
+    public void setSelectedColor(String selectedColor) { this.selectedColor = selectedColor; }
+
+    public String getSelectedSize() { return selectedSize; }
+    public void setSelectedSize(String selectedSize) { this.selectedSize = selectedSize; }
+
+    public String getSelectedModel() { return selectedModel; }
+    public void setSelectedModel(String selectedModel) { this.selectedModel = selectedModel; }
+
+    public String getCustomOptions() { return customOptions; }
+    public void setCustomOptions(String customOptions) { this.customOptions = customOptions; }
+
+    public ProduitVariante getVariante() { return variante; }
+    public void setVariante(ProduitVariante variante) { this.variante = variante; }
 }

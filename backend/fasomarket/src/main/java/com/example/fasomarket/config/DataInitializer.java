@@ -35,7 +35,7 @@ public class DataInitializer implements CommandLineRunner {
             vendorUser = userRepository.save(vendorUser);
             
             // Créer le profil vendeur approuvé
-            Vendor vendor = new Vendor(vendorUser, "CI123456789");
+            Vendor vendor = new Vendor(vendorUser);
             vendor.setStatus(VendorStatus.COMPTE_VALIDE);
             vendorRepository.save(vendor);
             System.out.println("Vendeur créé: +22670000001 / vendeur123 (APPROUVÉ)");

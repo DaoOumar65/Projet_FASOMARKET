@@ -22,6 +22,12 @@ public class CartService {
 
     @Autowired
     private ProductRepository productRepository;
+    
+    @Autowired
+    private ImageUrlService imageUrlService;
+
+    @Autowired
+    private ProduitVarianteRepository produitVarianteRepository;
 
     @Transactional
     public PanierItemResponse ajouterAuPanier(UUID clientId, AjouterPanierRequest request) {
@@ -43,25 +49,62 @@ public class CartService {
             throw new RuntimeException("Stock insuffisant");
         }
 
-        // Vérifier si le produit est déjà dans le panier
-        cartRepository.findByClientAndProduct(client, product)
-                .ifPresentOrElse(
-                    existingCart -> {
-                        int newQuantity = existingCart.getQuantity() + request.getQuantite();
-                        if (product.getStockQuantity() < newQuantity) {
-                            throw new RuntimeException("Stock insuffisant pour cette quantité");
-                        }
-                        existingCart.setQuantity(newQuantity);
-                        cartRepository.save(existingCart);
-                    },
-                    () -> {
-                        Cart cart = new Cart(client, product, request.getQuantite());
-                        cartRepository.save(cart);
-                    }
-                );
+        // Vérifier si le produit est déjà dans le panier avec les mêmes options
+        Cart existingCart = cartRepository.findByClientAndProduct(client, product)
+                .filter(cart -> 
+                    java.util.Objects.equals(cart.getSelectedColor(), request.getCouleurSelectionnee()) &&
+                    java.util.Objects.equals(cart.getSelectedSize(), request.getTailleSelectionnee()) &&
+                    java.util.Objects.equals(cart.getSelectedModel(), request.getModeleSelectionne())
+                )
+                .orElse(null);
 
-        Cart savedCart = cartRepository.findByClientAndProduct(client, product).get();
+        if (existingCart != null) {
+            // Augmenter la quantité
+            int newQuantity = existingCart.getQuantity() + request.getQuantite();
+            if (product.getStockQuantity() < newQuantity) {
+                throw new RuntimeException("Stock insuffisant pour cette quantité");
+            }
+            existingCart.setQuantity(newQuantity);
+            cartRepository.save(existingCart);
+        } else {
+            // Créer nouvel article avec options
+            Cart cart = new Cart(client, product, request.getQuantite());
+            cart.setSelectedColor(request.getCouleurSelectionnee());
+            cart.setSelectedSize(request.getTailleSelectionnee());
+            cart.setSelectedModel(request.getModeleSelectionne());
+            
+            // Options personnalisées en JSON
+            if (request.getOptionsPersonnalisees() != null && !request.getOptionsPersonnalisees().isEmpty()) {
+                cart.setCustomOptions(convertOptionsToJson(request.getOptionsPersonnalisees()));
+            }
+            
+            cartRepository.save(cart);
+        }
+
+        Cart savedCart = cartRepository.findByClientAndProduct(client, product)
+                .stream()
+                .filter(cart -> 
+                    java.util.Objects.equals(cart.getSelectedColor(), request.getCouleurSelectionnee()) &&
+                    java.util.Objects.equals(cart.getSelectedSize(), request.getTailleSelectionnee()) &&
+                    java.util.Objects.equals(cart.getSelectedModel(), request.getModeleSelectionne())
+                )
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Erreur lors de l'ajout au panier"));
         return mapCartToResponse(savedCart);
+    }
+
+    private String convertOptionsToJson(java.util.Map<String, String> options) {
+        try {
+            StringBuilder json = new StringBuilder("{");
+            options.forEach((key, value) -> {
+                if (json.length() > 1) json.append(",");
+                json.append("\"").append(key).append("\":\"").append(value).append("\"");
+            });
+            json.append("}");
+            return json.toString();
+        } catch (Exception e) {
+            return "{}";
+        }
     }
 
     public List<PanierItemResponse> obtenirPanier(UUID clientId) {
@@ -106,9 +149,16 @@ public class CartService {
         response.setPrixUnitaire(cart.getProduct().getPrice());
         response.setQuantite(cart.getQuantity());
         response.setPrixTotal(cart.getProduct().getPrice().multiply(BigDecimal.valueOf(cart.getQuantity())));
-        response.setImageProduit(cart.getProduct().getImages());
+        response.setImagesProduit(imageUrlService.buildImagesArray(cart.getProduct().getImages()));
         response.setDisponible(cart.getProduct().getAvailable() && cart.getProduct().getStockQuantity() >= cart.getQuantity());
         response.setDateAjout(cart.getCreatedAt());
+        
+        // Options sélectionnées
+        response.setCouleurSelectionnee(cart.getSelectedColor());
+        response.setTailleSelectionnee(cart.getSelectedSize());
+        response.setModeleSelectionne(cart.getSelectedModel());
+        response.setOptionsPersonnalisees(cart.getCustomOptions());
+        
         return response;
     }
 }

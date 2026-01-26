@@ -2,8 +2,18 @@ package com.example.fasomarket;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import com.example.fasomarket.config.*;
 
 @SpringBootApplication
+@EnableConfigurationProperties({
+    JwtProperties.class,
+    FileProperties.class,
+    AppProperties.class,
+    StockProperties.class,
+    PaymentProperties.class,
+    NotificationsProperties.class
+})
 public class FasomarketApplication {
 
 	public static void main(String[] args) {

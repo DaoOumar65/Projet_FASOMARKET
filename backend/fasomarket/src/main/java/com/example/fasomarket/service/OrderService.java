@@ -1,15 +1,14 @@
 package com.example.fasomarket.service;
 
 import com.example.fasomarket.dto.*;
-import com.example.fasomarket.dto.CommandeItemResponse;
 import com.example.fasomarket.model.*;
 import com.example.fasomarket.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.math.BigDecimal;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -19,307 +18,182 @@ public class OrderService {
     private OrderRepository orderRepository;
 
     @Autowired
-    private OrderItemRepository orderItemRepository;
+    private UserRepository userRepository;
 
     @Autowired
     private CartRepository cartRepository;
 
     @Autowired
-    private UserRepository userRepository;
+    private OrderNotificationService orderNotificationService;
 
-    @Autowired
-    private ProductRepository productRepository;
+    @Transactional
+    public void recalculerTotauxCommandes() {
+        List<Order> ordersWithZeroTotal = orderRepository.findByTotalAmount(BigDecimal.ZERO);
 
-    @Autowired
-    private NotificationService notificationService;
+        for (Order order : ordersWithZeroTotal) {
+            BigDecimal total = BigDecimal.ZERO;
+
+            if (order.getOrderItems() != null && !order.getOrderItems().isEmpty()) {
+                for (OrderItem item : order.getOrderItems()) {
+                    BigDecimal itemTotal = item.getUnitPrice()
+                            .multiply(BigDecimal.valueOf(item.getQuantity()));
+                    total = total.add(itemTotal);
+                }
+
+                order.setTotalAmount(total);
+                orderRepository.save(order);
+            }
+        }
+    }
+
+    public BigDecimal calculerTotalCommande(Order order) {
+        BigDecimal total = BigDecimal.ZERO;
+
+        if (order.getOrderItems() != null) {
+            for (OrderItem item : order.getOrderItems()) {
+                BigDecimal itemTotal = item.getUnitPrice()
+                        .multiply(BigDecimal.valueOf(item.getQuantity()));
+                total = total.add(itemTotal);
+            }
+        }
+
+        return total;
+    }
 
     @Transactional
     public CommandeResponse creerCommande(UUID clientId, CreerCommandeRequest request) {
         User client = userRepository.findById(clientId)
                 .orElseThrow(() -> new RuntimeException("Client non trouvé"));
 
-        if (!client.getRole().equals(Role.CLIENT)) {
-            throw new RuntimeException("Seuls les clients peuvent passer commande");
+        List<Cart> items = cartRepository.findByClient(client);
+        if (items.isEmpty()) {
+            throw new RuntimeException("Panier vide");
         }
 
-        List<Cart> cartItems = cartRepository.findByClient(client);
-        if (cartItems.isEmpty()) {
-            throw new RuntimeException("Le panier est vide");
+        Order order = new Order();
+        order.setClient(client);
+        order.setStatus(OrderStatus.PENDING);
+        order.setDeliveryAddress(request.getAdresseLivraison());
+        order.setNeedsDelivery(request.getNeedsDelivery());
+        order.setDeliveryPhone(request.getNumeroTelephone());
+
+        BigDecimal total = BigDecimal.ZERO;
+        for (Cart item : items) {
+            BigDecimal itemTotal = item.getProduct().getPrice()
+                    .multiply(BigDecimal.valueOf(item.getQuantity()));
+            total = total.add(itemTotal);
+
+            OrderItem orderItem = new OrderItem();
+            orderItem.setOrder(order);
+            orderItem.setProduct(item.getProduct());
+            orderItem.setQuantity(item.getQuantity());
+            orderItem.setUnitPrice(item.getProduct().getPrice());
+            order.getOrderItems().add(orderItem);
         }
 
-        // Vérifier la disponibilité des produits
-        for (Cart cartItem : cartItems) {
-            Product product = cartItem.getProduct();
-            if (!product.getIsActive() || !product.getAvailable()) {
-                throw new RuntimeException("Le produit " + product.getName() + " n'est plus disponible");
-            }
-            if (product.getStockQuantity() < cartItem.getQuantity()) {
-                throw new RuntimeException("Stock insuffisant pour " + product.getName());
-            }
-        }
-
-        // Créer la commande
-        Order order = new Order(client, request.getAdresseLivraison());
-        order = orderRepository.save(order);
-        BigDecimal totalAmount = BigDecimal.ZERO;
-
-        // Créer les articles de commande et décrémenter le stock
-        for (Cart cartItem : cartItems) {
-            Product product = cartItem.getProduct();
-            OrderItem orderItem = new OrderItem(order, product, cartItem.getQuantity(), product.getPrice());
-            orderItemRepository.save(orderItem);
-            totalAmount = totalAmount.add(orderItem.getTotalPrice());
-
-            // Décrémenter le stock
-            product.setStockQuantity(product.getStockQuantity() - cartItem.getQuantity());
-            productRepository.save(product);
-        }
-
-        // Mettre à jour le montant total
-        order.setTotalAmount(totalAmount);
-        order = orderRepository.save(order);
-
-        // Vider le panier
+        order.setTotalAmount(total);
+        Order savedOrder = orderRepository.save(order);
         cartRepository.deleteByClient(client);
 
-        // Notifications
-        final Order finalOrder = order;
-        final BigDecimal finalAmount = totalAmount;
-
-        notificationService.creerNotification(
-                client.getId(),
-                "Commande créée",
-                "Votre commande #" + finalOrder.getId().toString().substring(0, 8) + " a été créée. Montant: "
-                        + finalAmount + " FCFA");
-
-        cartItems.stream()
-                .map(cart -> cart.getProduct().getShop().getVendor().getUser())
-                .distinct()
-                .forEach(vendeur -> {
-                    notificationService.creerNotification(
-                            vendeur.getId(),
-                            "Nouvelle commande reçue",
-                            "Vous avez reçu une nouvelle commande de " + client.getFullName() + ". Montant: "
-                                    + finalAmount + " FCFA");
-                });
-
-        List<User> admins = userRepository.findByRole(Role.ADMIN);
-        admins.forEach(admin -> {
-            notificationService.creerNotification(
-                    admin.getId(),
-                    "Nouvelle commande sur la plateforme",
-                    "Commande #" + finalOrder.getId().toString().substring(0, 8) + " créée par " + client.getFullName()
-                            + ". Montant: " + finalAmount + " FCFA");
-        });
-
-        return mapOrderToResponse(order);
+        return mapToCommandeResponse(savedOrder);
     }
 
     public List<CommandeResponse> obtenirMesCommandes(UUID clientId) {
-        User client = userRepository.findById(clientId)
-                .orElseThrow(() -> new RuntimeException("Client non trouvé"));
-
-        return orderRepository.findByClientOrderByCreatedAtDesc(client)
-                .stream()
-                .map(this::mapOrderToResponse)
-                .collect(Collectors.toList());
+        List<Order> orders = orderRepository.findByClientIdWithDetailsOrderByCreatedAtDesc(clientId);
+        return orders.stream().map(this::mapToCommandeResponse).collect(Collectors.toList());
     }
 
     public CommandeResponse obtenirCommande(UUID clientId, UUID commandeId) {
-        User client = userRepository.findById(clientId)
-                .orElseThrow(() -> new RuntimeException("Client non trouvé"));
-
-        Order order = orderRepository.findById(commandeId)
+        Order order = orderRepository.findByIdWithDetails(commandeId)
                 .orElseThrow(() -> new RuntimeException("Commande non trouvée"));
 
         if (!order.getClient().getId().equals(clientId)) {
-            throw new RuntimeException("Non autorisé à voir cette commande");
+            throw new RuntimeException("Non autorisé");
         }
 
-        return mapOrderToResponse(order);
+        return mapToCommandeResponse(order);
     }
 
     public List<CommandeResponse> obtenirCommandesVendeur(UUID vendorUserId) {
         User vendor = userRepository.findById(vendorUserId)
                 .orElseThrow(() -> new RuntimeException("Vendeur non trouvé"));
 
-        if (!vendor.getRole().equals(Role.VENDOR)) {
-            throw new RuntimeException("Seuls les vendeurs peuvent voir leurs commandes");
-        }
-
-        return orderRepository.findOrdersByVendor(vendor)
-                .stream()
-                .map(this::mapOrderToResponse)
-                .collect(Collectors.toList());
+        List<Order> orders = orderRepository.findOrdersByVendor(vendor);
+        return orders.stream().map(this::mapToCommandeResponse).collect(Collectors.toList());
     }
 
     public List<CommandeResponse> obtenirCommandesVendeurParStatut(UUID vendorUserId, OrderStatus statut) {
         User vendor = userRepository.findById(vendorUserId)
                 .orElseThrow(() -> new RuntimeException("Vendeur non trouvé"));
 
-        if (!vendor.getRole().equals(Role.VENDOR)) {
-            throw new RuntimeException("Seuls les vendeurs peuvent voir leurs commandes");
-        }
-
-        return orderRepository.findOrdersByVendorAndStatus(vendor, statut)
-                .stream()
-                .map(this::mapOrderToResponse)
-                .collect(Collectors.toList());
+        List<Order> orders = orderRepository.findOrdersByVendorAndStatus(vendor, statut);
+        return orders.stream().map(this::mapToCommandeResponse).collect(Collectors.toList());
     }
 
     @Transactional
-    public CommandeResponse changerStatutCommandeVendeur(UUID vendorUserId, UUID commandeId,
-            OrderStatus nouveauStatut) {
-        User vendor = userRepository.findById(vendorUserId)
-                .orElseThrow(() -> new RuntimeException("Vendeur non trouvé"));
-
-        if (!vendor.getRole().equals(Role.VENDOR)) {
-            throw new RuntimeException("Seuls les vendeurs peuvent modifier le statut");
-        }
-
+    public CommandeResponse changerStatutCommandeVendeur(UUID vendorUserId, UUID commandeId, OrderStatus statut) {
         Order order = orderRepository.findById(commandeId)
                 .orElseThrow(() -> new RuntimeException("Commande non trouvée"));
 
-        boolean hasProductsInOrder = order.getOrderItems().stream()
+        // Vérifier que le vendeur a des produits dans cette commande
+        boolean hasProducts = order.getOrderItems().stream()
                 .anyMatch(item -> item.getProduct().getShop().getVendor().getUser().getId().equals(vendorUserId));
 
-        if (!hasProductsInOrder) {
-            throw new RuntimeException("Vous n'êtes pas autorisé à modifier cette commande");
+        if (!hasProducts) {
+            throw new RuntimeException("Non autorisé");
         }
 
-        if (!isValidStatusTransition(order.getStatus(), nouveauStatut)) {
-            throw new RuntimeException("Transition de statut non autorisée");
-        }
+        OrderStatus oldStatus = order.getStatus();
+        order.setStatus(statut);
+        Order savedOrder = orderRepository.save(order);
 
-        order.setStatus(nouveauStatut);
-        order = orderRepository.save(order);
+        orderNotificationService.notifierChangementStatut(savedOrder, oldStatus);
 
-        String statusMessage = getStatusMessage(nouveauStatut);
-        final Order finalOrder = order;
-
-        notificationService.creerNotification(
-                finalOrder.getClient().getId(),
-                "Mise à jour commande",
-                statusMessage + " - Commande #" + finalOrder.getId().toString().substring(0, 8));
-
-        if (nouveauStatut == OrderStatus.DELIVERED || nouveauStatut == OrderStatus.CANCELLED) {
-            List<User> admins = userRepository.findByRole(Role.ADMIN);
-            admins.forEach(admin -> {
-                notificationService.creerNotification(
-                        admin.getId(),
-                        "Commande " + (nouveauStatut == OrderStatus.DELIVERED ? "livrée" : "annulée"),
-                        "Commande #" + finalOrder.getId().toString().substring(0, 8) + " "
-                                + statusMessage.toLowerCase());
-            });
-        }
-
-        return mapOrderToResponse(order);
-    }
-
-    private String getStatusMessage(OrderStatus status) {
-        return switch (status) {
-            case CONFIRMED -> "Votre commande a été confirmée par le vendeur";
-            case SHIPPED -> "Votre commande a été expédiée";
-            case DELIVERED -> "Votre commande a été livrée";
-            case CANCELLED -> "Votre commande a été annulée";
-            default -> "Statut de votre commande mis à jour";
-        };
-    }
-
-    private boolean isValidStatusTransition(OrderStatus currentStatus, OrderStatus newStatus) {
-        return switch (currentStatus) {
-            case PENDING -> newStatus == OrderStatus.PAID || newStatus == OrderStatus.CANCELLED;
-            case PAID -> newStatus == OrderStatus.CONFIRMED || newStatus == OrderStatus.CANCELLED;
-            case CONFIRMED -> newStatus == OrderStatus.SHIPPED || newStatus == OrderStatus.CANCELLED;
-            case SHIPPED -> newStatus == OrderStatus.DELIVERED;
-            case DELIVERED, CANCELLED -> false;
-        };
+        return mapToCommandeResponse(savedOrder);
     }
 
     @Transactional
-    public CommandeResponse changerStatutCommande(UUID commandeId, OrderStatus nouveauStatut) {
+    public CommandeResponse changerStatutCommande(UUID commandeId, OrderStatus statut) {
         Order order = orderRepository.findById(commandeId)
                 .orElseThrow(() -> new RuntimeException("Commande non trouvée"));
 
-        order.setStatus(nouveauStatut);
-        order = orderRepository.save(order);
+        OrderStatus oldStatus = order.getStatus();
+        order.setStatus(statut);
+        Order savedOrder = orderRepository.save(order);
 
-        return mapOrderToResponse(order);
+        orderNotificationService.notifierChangementStatut(savedOrder, oldStatus);
+
+        return mapToCommandeResponse(savedOrder);
     }
 
-    @Transactional
-    public void annulerCommande(UUID clientId, UUID commandeId) {
-        User client = userRepository.findById(clientId)
-                .orElseThrow(() -> new RuntimeException("Client non trouvé"));
-
-        Order order = orderRepository.findById(commandeId)
-                .orElseThrow(() -> new RuntimeException("Commande non trouvée"));
-
-        if (!order.getClient().getId().equals(clientId)) {
-            throw new RuntimeException("Non autorisé à annuler cette commande");
-        }
-
-        if (order.getStatus() != OrderStatus.PENDING && order.getStatus() != OrderStatus.PAID) {
-            throw new RuntimeException("Cette commande ne peut plus être annulée");
-        }
-
-        for (OrderItem item : order.getOrderItems()) {
-            Product product = item.getProduct();
-            product.setStockQuantity(product.getStockQuantity() + item.getQuantity());
-            productRepository.save(product);
-        }
-
-        order.setStatus(OrderStatus.CANCELLED);
-        order = orderRepository.save(order);
-
-        final Order finalOrder = order;
-
-        notificationService.creerNotification(
-                clientId,
-                "Commande annulée",
-                "Votre commande #" + finalOrder.getId().toString().substring(0, 8) + " a été annulée avec succès");
-
-        finalOrder.getOrderItems().stream()
-                .map(item -> item.getProduct().getShop().getVendor().getUser())
-                .distinct()
-                .forEach(vendeur -> {
-                    notificationService.creerNotification(
-                            vendeur.getId(),
-                            "Commande annulée",
-                            "La commande #" + finalOrder.getId().toString().substring(0, 8)
-                                    + " a été annulée par le client");
-                });
-    }
-
-    private CommandeResponse mapOrderToResponse(Order order) {
+    private CommandeResponse mapToCommandeResponse(Order order) {
         CommandeResponse response = new CommandeResponse();
         response.setId(order.getId());
-        response.setClientId(order.getClient().getId());
-        response.setNomClient(order.getClient().getFullName());
+        response.setNumeroCommande("CMD-" + order.getId().toString().substring(0, 8));
         response.setStatut(order.getStatus());
-        response.setMontantTotal(order.getTotalAmount());
+        response.setTotalAmount(order.getTotalAmount());
+        response.setDateCommande(order.getCreatedAt());
         response.setAdresseLivraison(order.getDeliveryAddress());
-        response.setDateCreation(order.getCreatedAt());
-        response.setDateModification(order.getUpdatedAt());
+        response.setNeedsDelivery(order.getNeedsDelivery());
+        response.setTelephoneLivraison(order.getDeliveryPhone());
+        response.setNomClient(order.getClient().getFullName());
 
-        List<CommandeItemResponse> items = order.getOrderItems().stream()
-                .map(this::mapOrderItemToResponse)
-                .collect(Collectors.toList());
-        response.setArticles(items);
+        // Convert OrderItems to articles
+        List<Object> articles = new ArrayList<>();
+        if (order.getOrderItems() != null) {
+            for (OrderItem item : order.getOrderItems()) {
+                Map<String, Object> article = new HashMap<>();
+                article.put("id", item.getId());
+                article.put("nomProduit", item.getProduct().getName());
+                article.put("quantite", item.getQuantity());
+                article.put("prixUnitaire", item.getUnitPrice());
+                article.put("prixTotal", item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
+                article.put("nomBoutique", item.getProduct().getShop().getName());
+                articles.add(article);
+            }
+        }
+        response.setArticles(articles);
 
-        return response;
-
-    }
-
-    private CommandeItemResponse mapOrderItemToResponse(OrderItem orderItem) {
-        CommandeItemResponse response = new CommandeItemResponse();
-        response.setId(orderItem.getId());
-        response.setProduitId(orderItem.getProduct().getId());
-        response.setNomProduit(orderItem.getProduct().getName());
-        response.setNomBoutique(orderItem.getProduct().getShop().getName());
-        response.setQuantite(orderItem.getQuantity());
-        response.setPrixUnitaire(orderItem.getUnitPrice());
-        response.setPrixTotal(orderItem.getTotalPrice());
         return response;
     }
 }

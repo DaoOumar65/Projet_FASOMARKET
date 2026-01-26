@@ -28,6 +28,7 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
     List<Product> findByShopAndIsActiveTrue(Shop shop);
     boolean existsBySku(String sku);
     long countByIsActiveTrue();
+    long countByIsActive(boolean isActive);
     long countByShop(Shop shop);
     
     // Méthode pour recommandations client

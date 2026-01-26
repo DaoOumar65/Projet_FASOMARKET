@@ -2,6 +2,7 @@ package com.example.fasomarket.controller;
 
 import com.example.fasomarket.dto.BoutiquePublicDTO;
 import com.example.fasomarket.dto.ProductPublicDTO;
+import com.example.fasomarket.dto.ProduitVarianteDTO;
 import com.example.fasomarket.model.*;
 import com.example.fasomarket.repository.*;
 import com.example.fasomarket.service.*;
@@ -30,6 +31,9 @@ public class PublicController {
 
     @Autowired
     private CategoryRepository categoryRepository;
+
+    @Autowired
+    private ProduitVarianteService produitVarianteService;
 
     // Boutiques publiques (seulement ACTIVE)
     @GetMapping("/boutiques")
@@ -182,6 +186,16 @@ public class PublicController {
                 "categories", categories));
     }
 
+    @GetMapping("/produits/{id}/variantes")
+    public ResponseEntity<List<ProduitVarianteDTO>> getProduitVariantes(@PathVariable UUID id) {
+        try {
+            List<ProduitVarianteDTO> variantes = produitVarianteService.getVariantesByProduit(id);
+            return ResponseEntity.ok(variantes);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
     private BoutiquePublicDTO convertToDTO(Shop shop) {
         BoutiquePublicDTO dto = new BoutiquePublicDTO();
         dto.setId(shop.getId());
@@ -209,7 +223,26 @@ public class PublicController {
         dto.setPrice(product.getPrice());
         dto.setStockQuantity(product.getStockQuantity());
         dto.setCategory(product.getCategory());
-        dto.setImages(product.getImages());
+        
+        // Traiter les images - s'assurer qu'elles sont accessibles
+        String images = product.getImages();
+        if (images != null && !images.isEmpty()) {
+            // Si l'image ne commence pas par http, ajouter le préfixe du serveur
+            if (!images.startsWith("http")) {
+                // Vérifier si c'est un chemin local ou juste un nom de fichier
+                if (images.startsWith("uploads/") || images.startsWith("/uploads/")) {
+                    images = "http://localhost:8081/" + images.replaceFirst("^/?", "");
+                } else {
+                    // Si c'est juste un nom de fichier, utiliser le service d'images
+                    images = "http://localhost:8081/api/images/" + images;
+                }
+            }
+        } else {
+            // Image par défaut si aucune image
+            images = "http://localhost:8081/api/images/default-product.jpg";
+        }
+        dto.setImages(images);
+        
         dto.setStatus(product.getStatus() != null ? product.getStatus().name() : null);
         dto.setAvailable(product.getAvailable());
         dto.setFeatured(product.getFeatured());

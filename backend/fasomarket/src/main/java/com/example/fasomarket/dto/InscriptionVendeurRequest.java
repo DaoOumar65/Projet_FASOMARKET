@@ -12,15 +12,12 @@ public class InscriptionVendeurRequest {
     @Pattern(regexp = "^\\+?[0-9]{8,15}$", message = "Format de téléphone invalide")
     private String telephone;
 
+    @NotBlank(message = "L'email est obligatoire")
     @Email(message = "Format d'email invalide")
     private String email;
 
     @NotBlank(message = "Le mot de passe est obligatoire")
     private String motDePasse;
-
-    @NotBlank(message = "La carte d'identité est obligatoire")
-    @Pattern(regexp = "^B[0-9]{8}$", message = "Format de carte d'identité invalide (ex: B10802321)")
-    private String carteIdentite;
 
     public InscriptionVendeurRequest() {}
 
@@ -35,7 +32,4 @@ public class InscriptionVendeurRequest {
 
     public String getMotDePasse() { return motDePasse; }
     public void setMotDePasse(String motDePasse) { this.motDePasse = motDePasse; }
-
-    public String getCarteIdentite() { return carteIdentite; }
-    public void setCarteIdentite(String carteIdentite) { this.carteIdentite = carteIdentite; }
 }

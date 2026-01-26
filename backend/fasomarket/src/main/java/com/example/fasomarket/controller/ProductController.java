@@ -137,4 +137,22 @@ public class ProductController {
         List<ProduitResponse> produits = productService.rechercherProduits(nom, categorie);
         return ResponseEntity.ok(produits);
     }
+
+    @PutMapping("/{produitId}/stock")
+    @Operation(summary = "Réapprovisionner stock", description = "Ajoute du stock à un produit")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Stock mis à jour avec succès"),
+        @ApiResponse(responseCode = "400", description = "Non autorisé ou données invalides")
+    })
+    public ResponseEntity<?> reapprovisionnerStock(
+            @RequestHeader("X-User-Id") UUID vendorUserId,
+            @PathVariable UUID produitId,
+            @RequestParam int quantite) {
+        try {
+            productService.reapprovisionnerStock(vendorUserId, produitId, quantite);
+            return ResponseEntity.ok("Stock mis à jour avec succès");
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
 }

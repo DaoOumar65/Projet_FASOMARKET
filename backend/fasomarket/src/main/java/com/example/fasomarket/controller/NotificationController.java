@@ -1,5 +1,6 @@
 package com.example.fasomarket.controller;
 
+import com.example.fasomarket.dto.NotificationResponse;
 import com.example.fasomarket.model.Notification;
 import com.example.fasomarket.service.NotificationService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -28,7 +29,7 @@ public class NotificationController {
     })
     public ResponseEntity<?> obtenirNotifications(@RequestHeader("X-User-Id") UUID userId) {
         try {
-            List<Notification> notifications = notificationService.obtenirNotifications(userId);
+            List<NotificationResponse> notifications = notificationService.obtenirNotifications(userId);
             return ResponseEntity.ok(notifications);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -42,7 +43,7 @@ public class NotificationController {
     })
     public ResponseEntity<?> obtenirNotificationsNonLues(@RequestHeader("X-User-Id") UUID userId) {
         try {
-            List<Notification> notifications = notificationService.obtenirNotificationsNonLues(userId);
+            List<NotificationResponse> notifications = notificationService.obtenirNotificationsNonLues(userId);
             return ResponseEntity.ok(notifications);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());

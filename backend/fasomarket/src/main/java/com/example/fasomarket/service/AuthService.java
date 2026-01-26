@@ -29,6 +29,9 @@ public class AuthService {
     @Autowired
     private NotificationService notificationService;
 
+    @Autowired
+    private EmailService emailService;
+
     public AuthResponse connexion(ConnexionRequest request) {
         User user = userRepository.findByPhone(request.getTelephone())
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
@@ -75,20 +78,25 @@ public class AuthService {
             throw new RuntimeException("Ce numéro de téléphone est déjà utilisé");
         }
 
-        if (request.getEmail() != null && userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Cet email est déjà utilisé");
-        }
-
         User user = new User(
                 request.getNomComplet(),
                 request.getTelephone(),
-                request.getEmail(),
+                null, // Pas d'email pour les clients
                 passwordEncoder.encode(request.getMotDePasse()),
                 Role.CLIENT
         );
 
         user = userRepository.save(user);
         final User finalUser = user;
+        
+        // Envoyer email de bienvenue si l'utilisateur a un email
+        if (finalUser.getEmail() != null) {
+            try {
+                emailService.envoyerEmailBienvenue(finalUser.getEmail(), finalUser.getFullName());
+            } catch (Exception e) {
+                System.err.println("Erreur envoi email bienvenue: " + e.getMessage());
+            }
+        }
         
         // Notifier l'admin des nouvelles inscriptions clients
         List<User> admins = userRepository.findByRole(Role.ADMIN);
@@ -120,7 +128,7 @@ public class AuthService {
             throw new RuntimeException("Ce numéro de téléphone est déjà utilisé");
         }
 
-        if (request.getEmail() != null && userRepository.existsByEmail(request.getEmail())) {
+        if (userRepository.existsByEmail(request.getEmail())) {
             throw new RuntimeException("Cet email est déjà utilisé");
         }
 
@@ -135,8 +143,15 @@ public class AuthService {
         user = userRepository.save(user);
         final User finalUser = user;
 
-        Vendor vendor = new Vendor(finalUser, request.getCarteIdentite());
+        Vendor vendor = new Vendor(finalUser);
         vendorRepository.save(vendor);
+
+        // Envoyer email de bienvenue
+        try {
+            emailService.envoyerEmailBienvenue(finalUser.getEmail(), finalUser.getFullName());
+        } catch (Exception e) {
+            System.err.println("Erreur envoi email bienvenue vendeur: " + e.getMessage());
+        }
 
         // Notifier l'admin des nouvelles demandes vendeur
         List<User> admins = userRepository.findByRole(Role.ADMIN);
@@ -144,7 +159,7 @@ public class AuthService {
             notificationService.creerNotification(
                 admin.getId(),
                 "Nouvelle demande vendeur en attente",
-                "Un nouveau vendeur demande validation: " + finalUser.getFullName() + " (" + finalUser.getPhone() + "). Document: " + request.getCarteIdentite()
+                "Un nouveau vendeur demande validation: " + finalUser.getFullName() + " (" + finalUser.getPhone() + ")"
             );
         });
 
@@ -173,5 +188,21 @@ public class AuthService {
 
         user.setPassword(passwordEncoder.encode(request.getNouveauMotDePasse()));
         userRepository.save(user);
+    }
+
+    @Transactional
+    public User findOrCreateOAuthUser(String email, String name, String provider) {
+        return userRepository.findByEmail(email)
+                .orElseGet(() -> {
+                    User newUser = new User(
+                            name,
+                            null, // Pas de téléphone pour OAuth
+                            email,
+                            passwordEncoder.encode(UUID.randomUUID().toString()), // Mot de passe aléatoire
+                            Role.CLIENT
+                    );
+                    newUser.setIsVerified(true); // Email vérifié par OAuth
+                    return userRepository.save(newUser);
+                });
     }
 }

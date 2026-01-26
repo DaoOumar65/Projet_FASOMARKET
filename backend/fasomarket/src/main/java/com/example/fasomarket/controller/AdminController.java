@@ -89,12 +89,47 @@ public class AdminController {
 
             response.put("statistiques", statistiques);
 
-            // Listes pour les sections du dashboard (données simulées)
+            // Listes pour les sections du dashboard
             List<Vendor> vendorsEnAttente = vendorRepository.findByStatus(VendorStatus.EN_ATTENTE_VALIDATION);
-            response.put("vendeursEnAttente", vendorsEnAttente.subList(0, Math.min(5, vendorsEnAttente.size())));
+            List<Map<String, Object>> vendeursData = vendorsEnAttente.stream()
+                .limit(5)
+                .map(vendor -> {
+                    Map<String, Object> data = new HashMap<>();
+                    data.put("id", vendor.getId());
+                    data.put("nomComplet", vendor.getUser().getFullName());
+                    data.put("telephone", vendor.getUser().getPhone());
+                    data.put("email", vendor.getUser().getEmail());
+                    data.put("carteIdentite", vendor.getIdCard());
+                    data.put("status", vendor.getStatus());
+                    data.put("createdAt", vendor.getCreatedAt());
+                    return data;
+                })
+                .collect(java.util.stream.Collectors.toList());
+            response.put("vendeursEnAttente", vendeursData);
 
             List<Shop> shopsEnAttente = shopRepository.findByStatus(ShopStatus.EN_ATTENTE_APPROBATION);
-            response.put("boutiquesEnAttente", shopsEnAttente.subList(0, Math.min(5, shopsEnAttente.size())));
+            List<Map<String, Object>> boutiquesData = shopsEnAttente.stream()
+                .limit(5)
+                .map(shop -> {
+                    Map<String, Object> data = new HashMap<>();
+                    data.put("id", shop.getId());
+                    data.put("name", shop.getName());
+                    data.put("description", shop.getDescription());
+                    data.put("phone", shop.getPhone());
+                    data.put("address", shop.getAddress());
+                    data.put("status", shop.getStatus());
+                    data.put("dateSoumission", shop.getDateSoumission());
+                    if (shop.getVendor() != null) {
+                        Map<String, Object> vendorData = new HashMap<>();
+                        vendorData.put("id", shop.getVendor().getId());
+                        vendorData.put("nomComplet", shop.getVendor().getUser().getFullName());
+                        vendorData.put("telephone", shop.getVendor().getUser().getPhone());
+                        data.put("vendeur", vendorData);
+                    }
+                    return data;
+                })
+                .collect(java.util.stream.Collectors.toList());
+            response.put("boutiquesEnAttente", boutiquesData);
 
             // Commandes récentes - retourner seulement les infos essentielles
             List<Order> commandesRecentes = orderRepository.findAll();
@@ -209,7 +244,6 @@ public class AdminController {
                 data.put("nomComplet", vendor.getUser().getFullName());
                 data.put("telephone", vendor.getUser().getPhone());
                 data.put("email", vendor.getUser().getEmail());
-                data.put("carteIdentite", vendor.getIdCard());
                 data.put("status", vendor.getStatus());
                 data.put("createdAt", vendor.getCreatedAt());
                 return data;
@@ -224,6 +258,14 @@ public class AdminController {
                 data.put("description", shop.getDescription());
                 data.put("phone", shop.getPhone());
                 data.put("address", shop.getAddress());
+                data.put("numeroCnib", shop.getNumeroCnib());
+                data.put("fichierIfu", shop.getFichierIfu());
+                // Extraire seulement le nom du fichier pour l'URL
+                String ifuFilename = shop.getFichierIfu();
+                if (ifuFilename != null && ifuFilename.contains("/")) {
+                    ifuFilename = ifuFilename.substring(ifuFilename.lastIndexOf("/") + 1);
+                }
+                data.put("fichierIfuUrl", ifuFilename != null ? "/api/files/view/" + ifuFilename : null);
                 data.put("status", shop.getStatus());
                 data.put("dateSoumission", shop.getDateSoumission());
 
@@ -272,11 +314,14 @@ public class AdminController {
                         "Félicitations ! Votre compte vendeur a été approuvé. Vous pouvez maintenant créer votre boutique.");
 
                 // Envoyer email
-                emailService.envoyerEmailApprobationVendeur(
-                        vendor.getUser().getEmail(),
-                        vendor.getUser().getFullName(),
-                        "motdepasse123" // Mot de passe temporaire
-                );
+                try {
+                    emailService.envoyerEmailValidationVendeur(
+                            vendor.getUser().getEmail(),
+                            vendor.getUser().getFullName()
+                    );
+                } catch (Exception e) {
+                    System.err.println("Erreur envoi email validation vendeur: " + e.getMessage());
+                }
 
                 return ResponseEntity.ok("Vendeur approuvé, notification et email envoyés");
             } else if (statut == VendorStatus.REFUSE) {
@@ -372,6 +417,14 @@ public class AdminController {
             response.put("deliveryFee", boutique.getDeliveryFee());
             response.put("createdAt", boutique.getCreatedAt());
             response.put("updatedAt", boutique.getUpdatedAt());
+            response.put("numeroCnib", boutique.getNumeroCnib());
+            response.put("fichierIfu", boutique.getFichierIfu());
+            // Extraire seulement le nom du fichier pour l'URL
+            String ifuFilename = boutique.getFichierIfu();
+            if (ifuFilename != null && ifuFilename.contains("/")) {
+                ifuFilename = ifuFilename.substring(ifuFilename.lastIndexOf("/") + 1);
+            }
+            response.put("fichierIfuUrl", ifuFilename != null ? "/api/files/view/" + ifuFilename : null);
             response.put("dateSoumission", boutique.getDateSoumission());
             response.put("dateValidation", boutique.getDateValidation());
             response.put("raisonRejet", boutique.getRaisonRejet());
@@ -572,11 +625,29 @@ public class AdminController {
                     data.put("deliveryPhone", order.getDeliveryPhone());
                     data.put("createdAt", order.getCreatedAt());
                     data.put("updatedAt", order.getUpdatedAt());
+                    
+                    // Informations client
                     if (order.getClient() != null) {
                         data.put("clientId", order.getClient().getId());
                         data.put("clientName", order.getClient().getFullName());
                         data.put("clientPhone", order.getClient().getPhone());
+                    } else {
+                        data.put("clientName", "Client inconnu");
+                        data.put("clientPhone", "N/A");
                     }
+                    
+                    // Informations boutique depuis les items
+                    if (order.getOrderItems() != null && !order.getOrderItems().isEmpty()) {
+                        var firstItem = order.getOrderItems().iterator().next();
+                        if (firstItem.getProduct() != null && firstItem.getProduct().getShop() != null) {
+                            data.put("shopName", firstItem.getProduct().getShop().getName());
+                        } else {
+                            data.put("shopName", "Boutique inconnue");
+                        }
+                    } else {
+                        data.put("shopName", "Boutique inconnue");
+                    }
+                    
                     data.put("itemsCount", order.getOrderItems() != null ? order.getOrderItems().size() : 0);
                     return data;
                 })
@@ -723,6 +794,21 @@ public class AdminController {
         }
     }
 
+    @GetMapping("/statistiques")
+    @Operation(summary = "Statistiques dashboard", description = "Statistiques pour le dashboard admin")
+    public ResponseEntity<?> obtenirStatistiques() {
+        try {
+            Map<String, Object> stats = new HashMap<>();
+            stats.put("utilisateurs", userRepository.count());
+            stats.put("produits", productRepository.count());
+            stats.put("commandes", orderRepository.count());
+            stats.put("boutiques", shopRepository.count());
+            return ResponseEntity.ok(stats);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Erreur: " + e.getMessage());
+        }
+    }
+
     @GetMapping("/systeme/statistiques")
     @Operation(summary = "Statistiques système", description = "Statistiques globales du système")
     public ResponseEntity<?> obtenirStatistiquesSysteme(@RequestHeader("X-User-Id") UUID adminId) {
@@ -738,6 +824,66 @@ public class AdminController {
             return ResponseEntity.ok(stats);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Erreur lors du chargement des statistiques système");
+        }
+    }
+
+    @GetMapping("/badges")
+    @Operation(summary = "Badges admin", description = "Compteurs pour les badges de navigation")
+    public ResponseEntity<?> obtenirBadges(@RequestHeader("X-User-Id") UUID adminId) {
+        try {
+            Map<String, Object> badges = new HashMap<>();
+            
+            // Utilisateurs - Nouveaux comptes non vérifiés
+            long utilisateursNonVerifies = userRepository.countByIsVerified(false);
+            badges.put("utilisateurs", utilisateursNonVerifies);
+            
+            // Validations - Vendeurs + boutiques en attente
+            long vendeursEnAttente = vendorRepository.countByStatus(VendorStatus.EN_ATTENTE_VALIDATION);
+            long boutiquesEnAttente = shopRepository.countByStatus(ShopStatus.EN_ATTENTE_APPROBATION);
+            badges.put("validations", vendeursEnAttente + boutiquesEnAttente);
+            
+            // Boutiques - Boutiques nécessitant attention (rejetées + suspendues)
+            long boutiquesRejetees = shopRepository.countByStatus(ShopStatus.REJETEE);
+            long boutiquesSuspendues = shopRepository.countByStatus(ShopStatus.SUSPENDUE);
+            badges.put("boutiques", boutiquesRejetees + boutiquesSuspendues);
+            
+            // Produits - Produits signalés/inactifs nécessitant modération
+            long produitsInactifs = productRepository.countByIsActive(false);
+            badges.put("produits", produitsInactifs);
+            
+            // Commandes - Commandes avec problèmes (annulées + retournées)
+            long commandesAnnulees = orderRepository.countByStatus(OrderStatus.CANCELLED);
+            long commandesRetournees = orderRepository.countByStatus(OrderStatus.RETURNED);
+            badges.put("commandes", commandesAnnulees + commandesRetournees);
+            
+            return ResponseEntity.ok(badges);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Erreur lors du chargement des badges");
+        }
+    }
+
+    @GetMapping("/notifications")
+    @Operation(summary = "Notifications admin", description = "Liste des notifications pour l'admin")
+    public ResponseEntity<?> obtenirNotificationsAdmin(@RequestHeader("X-User-Id") UUID adminId) {
+        try {
+            List<NotificationResponse> notifications = notificationService.obtenirNotifications(adminId);
+            return ResponseEntity.ok(notifications);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Erreur lors du chargement des notifications");
+        }
+    }
+
+    @GetMapping("/notifications/compteur")
+    @Operation(summary = "Compteur notifications admin", description = "Nombre de notifications non lues pour l'admin")
+    public ResponseEntity<?> obtenirCompteurNotificationsAdmin(@RequestHeader("X-User-Id") UUID adminId) {
+        try {
+            long count = notificationService.compterNotificationsNonLues(adminId);
+            Map<String, Object> response = new HashMap<>();
+            response.put("count", count);
+            response.put("hasUnread", count > 0);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Erreur lors du chargement du compteur");
         }
     }
 }

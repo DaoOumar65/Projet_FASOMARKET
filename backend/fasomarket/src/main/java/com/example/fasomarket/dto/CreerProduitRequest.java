@@ -1,11 +1,14 @@
 package com.example.fasomarket.dto;
 
+import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 public class CreerProduitRequest {
     @NotBlank(message = "Le nom du produit est obligatoire")
@@ -32,6 +35,10 @@ public class CreerProduitRequest {
     private String materiau;
     private String taille;
     private List<String> tags;
+    
+    private String sizes;
+    private String colors;
+    private String origine;
 
     // Informations commerciales
     private BigDecimal remise = BigDecimal.ZERO;
@@ -63,7 +70,22 @@ public class CreerProduitRequest {
     public void setDescription(String description) { this.description = description; }
 
     public String getCategorieId() { return categorieId; }
-    public void setCategorieId(String categorieId) { this.categorieId = categorieId; }
+    
+    public void setCategorieId(String categorieId) { 
+        this.categorieId = categorieId; 
+    }
+    
+    @JsonAnySetter
+    public void handleUnknown(String key, Object value) {
+        if ("categorieId".equals(key) && value instanceof Map) {
+            Map<?, ?> map = (Map<?, ?>) value;
+            if (map.containsKey("id")) {
+                this.categorieId = String.valueOf(map.get("id"));
+            } else if (map.containsKey("value")) {
+                this.categorieId = String.valueOf(map.get("value"));
+            }
+        }
+    }
 
     public BigDecimal getPrix() { return prix; }
     public void setPrix(BigDecimal prix) { this.prix = prix; }
@@ -91,6 +113,15 @@ public class CreerProduitRequest {
 
     public String getTaille() { return taille; }
     public void setTaille(String taille) { this.taille = taille; }
+    
+    public String getSizes() { return sizes; }
+    public void setSizes(String sizes) { this.sizes = sizes; }
+    
+    public String getColors() { return colors; }
+    public void setColors(String colors) { this.colors = colors; }
+    
+    public String getOrigine() { return origine; }
+    public void setOrigine(String origine) { this.origine = origine; }
 
     public List<String> getTags() { return tags; }
     public void setTags(List<String> tags) { this.tags = tags; }

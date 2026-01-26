@@ -40,9 +40,8 @@ public class Vendor {
     // Constructeurs
     public Vendor() {}
 
-    public Vendor(User user, String idCard) {
+    public Vendor(User user) {
         this.user = user;
-        this.idCard = idCard;
     }
 
     // Getters et Setters

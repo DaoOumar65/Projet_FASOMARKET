@@ -21,6 +21,13 @@ public class CreerBoutiqueRequest {
     @Email(message = "Format d'email invalide")
     private String email;
 
+    @NotBlank(message = "Le numéro CNIB est obligatoire")
+    @Pattern(regexp = "^B[0-9]{8}$", message = "Format CNIB invalide (ex: B10802321)")
+    private String numeroCnib;
+
+    @NotBlank(message = "Le fichier IFU est obligatoire")
+    private String fichierIfu; // Chemin vers le fichier IFU (image ou PDF)
+
     private String logoUrl;
     private String bannerUrl;
     private String categorie;
@@ -47,6 +54,12 @@ public class CreerBoutiqueRequest {
 
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
+
+    public String getNumeroCnib() { return numeroCnib; }
+    public void setNumeroCnib(String numeroCnib) { this.numeroCnib = numeroCnib; }
+
+    public String getFichierIfu() { return fichierIfu; }
+    public void setFichierIfu(String fichierIfu) { this.fichierIfu = fichierIfu; }
 
     public String getLogoUrl() { return logoUrl; }
     public void setLogoUrl(String logoUrl) { this.logoUrl = logoUrl; }

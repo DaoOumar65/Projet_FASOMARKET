@@ -5,22 +5,32 @@ import java.util.UUID;
 
 public class NotificationResponse {
     private UUID id;
-    private String titre;
+    private String title;
     private String message;
     private String type;
-    private Boolean estLue;
     private UUID referenceId;
-    private LocalDateTime dateCreation;
+    private Boolean isRead;
+    private LocalDateTime createdAt;
 
-    // Constructeurs
     public NotificationResponse() {}
+
+    public NotificationResponse(UUID id, String title, String message, String type, 
+                              UUID referenceId, Boolean isRead, LocalDateTime createdAt) {
+        this.id = id;
+        this.title = title;
+        this.message = message;
+        this.type = type;
+        this.referenceId = referenceId;
+        this.isRead = isRead;
+        this.createdAt = createdAt;
+    }
 
     // Getters et Setters
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
 
-    public String getTitre() { return titre; }
-    public void setTitre(String titre) { this.titre = titre; }
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
 
     public String getMessage() { return message; }
     public void setMessage(String message) { this.message = message; }
@@ -28,12 +38,12 @@ public class NotificationResponse {
     public String getType() { return type; }
     public void setType(String type) { this.type = type; }
 
-    public Boolean getEstLue() { return estLue; }
-    public void setEstLue(Boolean estLue) { this.estLue = estLue; }
-
     public UUID getReferenceId() { return referenceId; }
     public void setReferenceId(UUID referenceId) { this.referenceId = referenceId; }
 
-    public LocalDateTime getDateCreation() { return dateCreation; }
-    public void setDateCreation(LocalDateTime dateCreation) { this.dateCreation = dateCreation; }
+    public Boolean getIsRead() { return isRead; }
+    public void setIsRead(Boolean isRead) { this.isRead = isRead; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

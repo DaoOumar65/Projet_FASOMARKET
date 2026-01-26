@@ -1,5 +1,6 @@
 package com.example.fasomarket.service;
 
+import com.example.fasomarket.dto.NotificationResponse;
 import com.example.fasomarket.model.*;
 import com.example.fasomarket.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,18 +32,24 @@ public class NotificationService {
         notificationRepository.save(notification);
     }
 
-    public List<Notification> obtenirNotifications(UUID userId) {
+    public List<NotificationResponse> obtenirNotifications(UUID userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
         
-        return notificationRepository.findByUserOrderByCreatedAtDesc(user);
+        return notificationRepository.findByUserOrderByCreatedAtDesc(user)
+                .stream()
+                .map(this::mapToResponse)
+                .collect(java.util.stream.Collectors.toList());
     }
 
-    public List<Notification> obtenirNotificationsNonLues(UUID userId) {
+    public List<NotificationResponse> obtenirNotificationsNonLues(UUID userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
         
-        return notificationRepository.findByUserAndIsReadFalseOrderByCreatedAtDesc(user);
+        return notificationRepository.findByUserAndIsReadFalseOrderByCreatedAtDesc(user)
+                .stream()
+                .map(this::mapToResponse)
+                .collect(java.util.stream.Collectors.toList());
     }
 
     public long compterNotificationsNonLues(UUID userId) {
@@ -114,5 +121,17 @@ public class NotificationService {
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
         Notification notification = new Notification(user, title, message, type, referenceId);
         notificationRepository.save(notification);
+    }
+
+    private NotificationResponse mapToResponse(Notification notification) {
+        return new NotificationResponse(
+            notification.getId(),
+            notification.getTitle(),
+            notification.getMessage(),
+            notification.getType(),
+            notification.getReferenceId(),
+            notification.getIsRead(),
+            notification.getCreatedAt()
+        );
     }
 }

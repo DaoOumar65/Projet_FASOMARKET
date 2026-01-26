@@ -1,0 +1,3 @@
+// Image par défaut pour les produits
+// Cette image sera servie quand aucune image n'est disponible
+// Placez une vraie image default-product.jpg dans le dossier uploads/

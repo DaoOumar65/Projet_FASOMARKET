@@ -51,6 +51,12 @@ public class Shop {
     private String category; // Garder pour compatibilité
 
     // Documents de validation
+    @Column(name = "numero_cnib")
+    private String numeroCnib;
+
+    @Column(name = "fichier_ifu")
+    private String fichierIfu;
+
     @Column(name = "registre_commerce_url")
     private String registreCommerceUrl;
 
@@ -201,4 +207,10 @@ public class Shop {
 
     public UUID getValideParAdminId() { return valideParAdminId; }
     public void setValideParAdminId(UUID valideParAdminId) { this.valideParAdminId = valideParAdminId; }
+
+    public String getNumeroCnib() { return numeroCnib; }
+    public void setNumeroCnib(String numeroCnib) { this.numeroCnib = numeroCnib; }
+
+    public String getFichierIfu() { return fichierIfu; }
+    public void setFichierIfu(String fichierIfu) { this.fichierIfu = fichierIfu; }
 }

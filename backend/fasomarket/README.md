@@ -180,6 +180,12 @@ mvn spring-boot:run
 | PUT | `/api/notifications/{id}/lue` | Marquer comme lue |
 | PUT | `/api/notifications/toutes-lues` | Marquer toutes comme lues |
 
+### Gestion Fichiers
+
+| Méthode | Endpoint | Description |
+|---------|----------|-------------|
+| POST | `/api/files/upload-ifu` | Upload fichier IFU (PDF/Image) |
+
 ### Exemples de requêtes
 
 #### Connexion
@@ -197,7 +203,6 @@ POST /api/auth/inscription-client
 {
   "nomComplet": "Jean Dupont",
   "telephone": "+22670123456",
-  "email": "jean@example.com",
   "motDePasse": "monMotDePasse"
 }
 ```
@@ -209,8 +214,7 @@ POST /api/auth/inscription-vendeur
   "nomComplet": "Marie Commerçante",
   "telephone": "+22670654321",
   "email": "marie@example.com",
-  "motDePasse": "monMotDePasse",
-  "carteIdentite": "CI123456789"
+  "motDePasse": "monMotDePasse"
 }
 ```
 
@@ -224,6 +228,8 @@ Headers: X-User-Id: {vendorUserId}
   "telephone": "+22670654321",
   "adresse": "Secteur 15, Ouagadougou",
   "email": "contact@boutique.com",
+  "numeroCnib": "B10802321",
+  "fichierIfu": "uploads/ifu/uuid-file.pdf",
   "categorie": "Alimentaire",
   "livraison": true,
   "fraisLivraison": 1000

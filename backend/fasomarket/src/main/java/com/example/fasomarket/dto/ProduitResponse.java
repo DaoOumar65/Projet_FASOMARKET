@@ -3,6 +3,8 @@ package com.example.fasomarket.dto;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import java.util.List;
+import java.util.Map;
 
 public class ProduitResponse {
     private UUID id;
@@ -11,10 +13,12 @@ public class ProduitResponse {
     private String nom;
     private String description;
     private String categorie;
+    private Map<String, Object> categorieObj;
     private BigDecimal prix;
     private Integer quantiteStock;
     private Boolean actif;
     private String images;
+    private List<String> imagesList;
     private String sku;
     private BigDecimal poids;
     private String dimensions;
@@ -25,6 +29,17 @@ public class ProduitResponse {
     private Boolean disponible;
     private LocalDateTime dateCreation;
     private LocalDateTime dateModification;
+    
+    // Détails produits
+    private String sizes;
+    private String colors;
+    private String couleur;
+    private String taille;
+    private String marque;
+    private String materiau;
+    private String origine;
+    private String periodeGarantie;
+    private String politiqueRetour;
 
     public ProduitResponse() {}
 
@@ -46,6 +61,9 @@ public class ProduitResponse {
 
     public String getCategorie() { return categorie; }
     public void setCategorie(String categorie) { this.categorie = categorie; }
+    
+    public Map<String, Object> getCategorieObj() { return categorieObj; }
+    public void setCategorieObj(Map<String, Object> categorieObj) { this.categorieObj = categorieObj; }
 
     public BigDecimal getPrix() { return prix; }
     public void setPrix(BigDecimal prix) { this.prix = prix; }
@@ -58,6 +76,9 @@ public class ProduitResponse {
 
     public String getImages() { return images; }
     public void setImages(String images) { this.images = images; }
+    
+    public List<String> getImagesList() { return imagesList; }
+    public void setImagesList(List<String> imagesList) { this.imagesList = imagesList; }
 
     public String getSku() { return sku; }
     public void setSku(String sku) { this.sku = sku; }
@@ -88,4 +109,31 @@ public class ProduitResponse {
 
     public LocalDateTime getDateModification() { return dateModification; }
     public void setDateModification(LocalDateTime dateModification) { this.dateModification = dateModification; }
+    
+    public String getSizes() { return sizes; }
+    public void setSizes(String sizes) { this.sizes = sizes; }
+    
+    public String getColors() { return colors; }
+    public void setColors(String colors) { this.colors = colors; }
+    
+    public String getCouleur() { return couleur; }
+    public void setCouleur(String couleur) { this.couleur = couleur; }
+    
+    public String getTaille() { return taille; }
+    public void setTaille(String taille) { this.taille = taille; }
+    
+    public String getMarque() { return marque; }
+    public void setMarque(String marque) { this.marque = marque; }
+    
+    public String getMateriau() { return materiau; }
+    public void setMateriau(String materiau) { this.materiau = materiau; }
+    
+    public String getOrigine() { return origine; }
+    public void setOrigine(String origine) { this.origine = origine; }
+    
+    public String getPeriodeGarantie() { return periodeGarantie; }
+    public void setPeriodeGarantie(String periodeGarantie) { this.periodeGarantie = periodeGarantie; }
+    
+    public String getPolitiqueRetour() { return politiqueRetour; }
+    public void setPolitiqueRetour(String politiqueRetour) { this.politiqueRetour = politiqueRetour; }
 }

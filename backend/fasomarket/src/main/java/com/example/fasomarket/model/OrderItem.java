@@ -28,6 +28,19 @@ public class OrderItem {
     @Column(name = "total_price", nullable = false, precision = 10, scale = 2)
     private BigDecimal totalPrice;
 
+    // Options sélectionnées lors de l'achat
+    @Column(name = "selected_color")
+    private String selectedColor;
+
+    @Column(name = "selected_size")
+    private String selectedSize;
+
+    @Column(name = "selected_model")
+    private String selectedModel;
+
+    @Column(name = "custom_options", columnDefinition = "TEXT")
+    private String customOptions;
+
     // Constructeurs
     public OrderItem() {}
 
@@ -67,4 +80,16 @@ public class OrderItem {
 
     public BigDecimal getTotalPrice() { return totalPrice; }
     public void setTotalPrice(BigDecimal totalPrice) { this.totalPrice = totalPrice; }
+
+    public String getSelectedColor() { return selectedColor; }
+    public void setSelectedColor(String selectedColor) { this.selectedColor = selectedColor; }
+
+    public String getSelectedSize() { return selectedSize; }
+    public void setSelectedSize(String selectedSize) { this.selectedSize = selectedSize; }
+
+    public String getSelectedModel() { return selectedModel; }
+    public void setSelectedModel(String selectedModel) { this.selectedModel = selectedModel; }
+
+    public String getCustomOptions() { return customOptions; }
+    public void setCustomOptions(String customOptions) { this.customOptions = customOptions; }
 }

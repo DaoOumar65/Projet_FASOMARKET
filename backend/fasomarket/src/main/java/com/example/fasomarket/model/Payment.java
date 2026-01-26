@@ -12,36 +12,31 @@ public class Payment {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @OneToOne
+    @ManyToOne
     @JoinColumn(name = "order_id", nullable = false)
     private Order order;
 
-    @Column(name = "amount", nullable = false, precision = 10, scale = 2)
+    @Column(name = "amount", nullable = false)
     private BigDecimal amount;
 
-    @Column(name = "payment_method", nullable = false)
-    private String paymentMethod; // MOBILE_MONEY, CARD, CASH
+    @Column(name = "payment_method")
+    private String paymentMethod;
 
     @Column(name = "transaction_id")
     private String transactionId;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
-    private String status = "PENDING"; // PENDING, SUCCESS, FAILED
+    private PaymentStatus status = PaymentStatus.PENDING;
+
+    @Column(name = "payment_date")
+    private LocalDateTime paymentDate;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
-    @Column(name = "processed_at")
-    private LocalDateTime processedAt;
-
     // Constructeurs
     public Payment() {}
-
-    public Payment(Order order, BigDecimal amount, String paymentMethod) {
-        this.order = order;
-        this.amount = amount;
-        this.paymentMethod = paymentMethod;
-    }
 
     // Getters et Setters
     public UUID getId() { return id; }
@@ -59,12 +54,12 @@ public class Payment {
     public String getTransactionId() { return transactionId; }
     public void setTransactionId(String transactionId) { this.transactionId = transactionId; }
 
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    public PaymentStatus getStatus() { return status; }
+    public void setStatus(PaymentStatus status) { this.status = status; }
+
+    public LocalDateTime getPaymentDate() { return paymentDate; }
+    public void setPaymentDate(LocalDateTime paymentDate) { this.paymentDate = paymentDate; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-
-    public LocalDateTime getProcessedAt() { return processedAt; }
-    public void setProcessedAt(LocalDateTime processedAt) { this.processedAt = processedAt; }
 }

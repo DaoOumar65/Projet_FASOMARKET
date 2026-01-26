@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.UUID;
 import java.time.LocalDateTime;
+import org.springframework.web.multipart.MultipartFile;
 import java.util.stream.Collectors;
 
 @Service
@@ -28,6 +29,9 @@ public class ShopService {
 
     @Autowired
     private NotificationService notificationService;
+
+    @Autowired
+    private FileService fileService;
 
     @Transactional
     public BoutiqueResponse creerBoutique(UUID vendorUserId, CreerBoutiqueRequest request) {
@@ -57,9 +61,11 @@ public class ShopService {
         Shop shop = new Shop(vendor, request.getNom(), request.getDescription(),
                 request.getTelephone(), request.getAdresse());
 
-        // Définir le statut initial comme BROUILLON
-        shop.setStatus(ShopStatus.BROUILLON);
+        // Définir le statut initial comme EN_ATTENTE_APPROBATION
+        shop.setStatus(ShopStatus.EN_ATTENTE_APPROBATION);
         shop.setEmail(request.getEmail());
+        shop.setNumeroCnib(request.getNumeroCnib());
+        shop.setFichierIfu(request.getFichierIfu());
         shop.setLogoUrl(request.getLogoUrl());
         shop.setBannerUrl(request.getBannerUrl());
         shop.setCategory(request.getCategorie());
@@ -95,7 +101,7 @@ public class ShopService {
                     admin.getId(),
                     "Nouvelle boutique à valider",
                     "La boutique '" + savedShop.getName() + "' de " + finalVendor.getUser().getFullName()
-                            + " est en attente de validation");
+                            + " est en attente de validation. CNIB: " + savedShop.getNumeroCnib());
         });
 
         return mapToResponse(savedShop);
@@ -255,7 +261,8 @@ public class ShopService {
         response.setNom(shop.getName());
         response.setDescription(shop.getDescription());
         response.setLogoUrl(shop.getLogoUrl());
-        response.setBannerUrl(shop.getBannerUrl());
+        // Si pas de bannière, utiliser le logo comme bannière
+        response.setBannerUrl(shop.getBannerUrl() != null ? shop.getBannerUrl() : shop.getLogoUrl());
         response.setEmail(shop.getEmail());
         response.setTelephone(shop.getPhone());
         response.setAdresse(shop.getAddress());
@@ -280,5 +287,73 @@ public class ShopService {
 
     public long compterBoutiquesParCategorie(String categorie) {
         return shopRepository.countByStatusAndCategory(ShopStatus.ACTIVE, categorie);
+    }
+
+    @Transactional
+    public String uploadLogo(UUID vendorUserId, UUID boutiqueId, MultipartFile file) {
+        Shop shop = shopRepository.findById(boutiqueId)
+                .orElseThrow(() -> new RuntimeException("Boutique non trouvée"));
+
+        if (!shop.getVendor().getUser().getId().equals(vendorUserId)) {
+            throw new RuntimeException("Vous n'êtes pas autorisé à modifier cette boutique");
+        }
+
+        // Valider le fichier
+        if (file.isEmpty()) {
+            throw new RuntimeException("Fichier vide");
+        }
+
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new RuntimeException("Le fichier doit être une image");
+        }
+
+        try {
+            // Sauvegarder le fichier
+            String fileName = fileService.saveShopImage(file, "logo_" + boutiqueId);
+            String logoUrl = "/api/files/shops/" + fileName;
+            
+            // Mettre à jour la boutique
+            shop.setLogoUrl(logoUrl);
+            shopRepository.save(shop);
+            
+            return logoUrl;
+        } catch (Exception e) {
+            throw new RuntimeException("Erreur lors de l'upload du logo: " + e.getMessage());
+        }
+    }
+
+    @Transactional
+    public String uploadBanner(UUID vendorUserId, UUID boutiqueId, MultipartFile file) {
+        Shop shop = shopRepository.findById(boutiqueId)
+                .orElseThrow(() -> new RuntimeException("Boutique non trouvée"));
+
+        if (!shop.getVendor().getUser().getId().equals(vendorUserId)) {
+            throw new RuntimeException("Vous n'êtes pas autorisé à modifier cette boutique");
+        }
+
+        // Valider le fichier
+        if (file.isEmpty()) {
+            throw new RuntimeException("Fichier vide");
+        }
+
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new RuntimeException("Le fichier doit être une image");
+        }
+
+        try {
+            // Sauvegarder le fichier
+            String fileName = fileService.saveShopImage(file, "banner_" + boutiqueId);
+            String bannerUrl = "/api/files/shops/" + fileName;
+            
+            // Mettre à jour la boutique
+            shop.setBannerUrl(bannerUrl);
+            shopRepository.save(shop);
+            
+            return bannerUrl;
+        } catch (Exception e) {
+            throw new RuntimeException("Erreur lors de l'upload de la bannière: " + e.getMessage());
+        }
     }
 }

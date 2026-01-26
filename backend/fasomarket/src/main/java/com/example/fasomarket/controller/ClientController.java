@@ -279,11 +279,31 @@ public class ClientController {
     // Panier
     @GetMapping("/panier")
     @Operation(summary = "Voir le panier", description = "Récupère le contenu du panier du client")
-    public ResponseEntity<?> getPanier(@RequestHeader("X-User-Id") UUID clientId) {
+    public ResponseEntity<?> getPanier(@RequestHeader(value = "X-User-Id", required = false) String userIdStr) {
         try {
+            if (userIdStr == null || userIdStr.trim().isEmpty()) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("success", false);
+                errorResponse.put("message", "En-tête X-User-Id requis");
+                return ResponseEntity.badRequest().body(errorResponse);
+            }
+            
+            UUID clientId;
+            try {
+                clientId = UUID.fromString(userIdStr);
+            } catch (IllegalArgumentException e) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("success", false);
+                errorResponse.put("message", "ID utilisateur invalide");
+                return ResponseEntity.badRequest().body(errorResponse);
+            }
+            
             User client = userRepository.findById(clientId).orElse(null);
             if (client == null) {
-                return ResponseEntity.badRequest().body("Client non trouvé");
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("success", false);
+                errorResponse.put("message", "Client non trouvé");
+                return ResponseEntity.badRequest().body(errorResponse);
             }
 
             List<Cart> items = cartRepository.findByClient(client);
@@ -291,10 +311,104 @@ public class ClientController {
                 .map(this::convertCartToDTO)
                 .collect(Collectors.toList());
             
-            return ResponseEntity.ok(dtos);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("data", dtos);
+            response.put("total", dtos.size());
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Erreur: " + e.getMessage());
+            return ResponseEntity.status(500).body(errorResponse);
+        }
+    }
+    
+    @PostMapping("/paiement/simuler")
+    @Operation(summary = "Simuler paiement", description = "Simule un paiement pour une commande")
+    public ResponseEntity<?> simulerPaiement(
+            @RequestHeader("X-User-Id") UUID clientId,
+            @RequestBody Map<String, Object> request) {
+        try {
+            String commandeId = (String) request.get("commandeId");
+            String modePaiement = (String) request.get("modePaiement");
+            String numeroTelephone = (String) request.get("numeroTelephone");
+            
+            // Simuler délai de traitement
+            Thread.sleep(2000);
+            
+            // Simuler succès/échec (90% de succès)
+            boolean succes = Math.random() > 0.1;
+            
+            Map<String, Object> response = new HashMap<>();
+            
+            if (succes) {
+                response.put("statut", "SUCCES");
+                response.put("message", "Paiement effectué avec succès");
+                response.put("transactionId", "TXN-" + System.currentTimeMillis());
+                response.put("modePaiement", modePaiement);
+                response.put("numeroTelephone", numeroTelephone);
+                response.put("montant", request.get("montant"));
+                response.put("dateTransaction", LocalDateTime.now());
+            } else {
+                response.put("statut", "ECHEC");
+                response.put("message", "Paiement échoué. Veuillez réessayer.");
+                response.put("codeErreur", "ERR_" + (int)(Math.random() * 1000));
+            }
+            
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.status(500).body("Erreur: " + e.getMessage());
         }
+    }
+    
+    @GetMapping("/paiement/modes")
+    @Operation(summary = "Modes de paiement", description = "Liste des modes de paiement disponibles")
+    public ResponseEntity<?> getModePaiement() {
+        List<Map<String, Object>> modes = new ArrayList<>();
+        
+        // Orange Money
+        Map<String, Object> orange = new HashMap<>();
+        orange.put("id", "ORANGE_MONEY");
+        orange.put("nom", "Orange Money");
+        orange.put("logo", "orange-money.png");
+        orange.put("description", "Paiement via Orange Money");
+        orange.put("frais", 0);
+        orange.put("actif", true);
+        modes.add(orange);
+        
+        // Moov Money
+        Map<String, Object> moov = new HashMap<>();
+        moov.put("id", "MOOV_MONEY");
+        moov.put("nom", "Moov Money");
+        moov.put("logo", "moov-money.png");
+        moov.put("description", "Paiement via Moov Money");
+        moov.put("frais", 0);
+        moov.put("actif", true);
+        modes.add(moov);
+        
+        // Coris Money
+        Map<String, Object> coris = new HashMap<>();
+        coris.put("id", "CORIS_MONEY");
+        coris.put("nom", "Coris Money");
+        coris.put("logo", "coris-money.png");
+        coris.put("description", "Paiement via Coris Money");
+        coris.put("frais", 0);
+        coris.put("actif", true);
+        modes.add(coris);
+        
+        // Paiement à la livraison
+        Map<String, Object> livraison = new HashMap<>();
+        livraison.put("id", "CASH_ON_DELIVERY");
+        livraison.put("nom", "Paiement à la livraison");
+        livraison.put("logo", "cash-delivery.png");
+        livraison.put("description", "Payer en espèces à la réception");
+        livraison.put("frais", 0);
+        livraison.put("actif", true);
+        modes.add(livraison);
+        
+        return ResponseEntity.ok(modes);
     }
 
     @PostMapping("/panier/ajouter")
@@ -305,6 +419,7 @@ public class ClientController {
         try {
             UUID produitId = UUID.fromString((String) request.get("produitId"));
             Integer quantite = (Integer) request.get("quantite");
+            Long varianteId = request.get("varianteId") != null ? Long.valueOf(request.get("varianteId").toString()) : null;
 
             User client = userRepository.findById(clientId).orElse(null);
             Product produit = productRepository.findById(produitId).orElse(null);
@@ -313,14 +428,29 @@ public class ClientController {
                 return ResponseEntity.badRequest().body("Client ou produit non trouvé");
             }
 
-            // Vérifier si le produit est déjà dans le panier
-            Optional<Cart> existant = cartRepository.findByClientAndProduct(client, produit);
+            // Vérifier si le produit est déjà dans le panier avec la même variante
+            Optional<Cart> existant = cartRepository.findByClientAndProduct(client, produit)
+                .filter(cart -> {
+                    if (varianteId == null) {
+                        return cart.getVariante() == null;
+                    } else {
+                        return cart.getVariante() != null && cart.getVariante().getId().equals(varianteId);
+                    }
+                });
+                
             if (existant.isPresent()) {
                 Cart item = existant.get();
                 item.setQuantity(item.getQuantity() + quantite);
                 cartRepository.save(item);
             } else {
                 Cart item = new Cart(client, produit, quantite);
+                
+                // Ajouter la variante si spécifiée
+                if (varianteId != null) {
+                    // Note: Vous devrez ajouter ProduitVarianteRepository ici
+                    // item.setVariante(produitVarianteRepository.findById(varianteId).orElse(null));
+                }
+                
                 cartRepository.save(item);
             }
 
@@ -383,7 +513,15 @@ public class ClientController {
         
         if (cart.getProduct().getImages() != null && !cart.getProduct().getImages().isEmpty()) {
             String[] images = cart.getProduct().getImages().split(",");
-            dto.setProductImage(images[0].trim());
+            List<String> imageUrls = new ArrayList<>();
+            for (String image : images) {
+                String imageUrl = image.trim();
+                if (!imageUrl.startsWith("http")) {
+                    imageUrl = "http://localhost:8081/uploads/produits/" + imageUrl;
+                }
+                imageUrls.add(imageUrl);
+            }
+            dto.setProductImages(imageUrls);
         }
         
         return dto;
@@ -406,7 +544,7 @@ public class ClientController {
                 return ResponseEntity.badRequest().body("Panier vide");
             }
 
-            // Créer la commande
+            // Créer la commande avec calcul correct du total
             Order order = new Order();
             order.setClient(client);
             order.setStatus(OrderStatus.PENDING);
@@ -414,35 +552,65 @@ public class ClientController {
             order.setNeedsDelivery((Boolean) request.getOrDefault("needsDelivery", false));
             order.setDeliveryPhone((String) request.get("numeroTelephone"));
             
-            // Calculer le total et créer les OrderItems
+            // Calculer le total AVANT de sauvegarder
             BigDecimal total = BigDecimal.ZERO;
+            
             for (Cart item : items) {
-                BigDecimal itemTotal = item.getProduct().getPrice().multiply(BigDecimal.valueOf(item.getQuantity()));
-                total = total.add(itemTotal);
+                // Vérifier le stock
+                if (item.getProduct().getStockQuantity() < item.getQuantity()) {
+                    return ResponseEntity.badRequest().body(
+                        "Stock insuffisant pour " + item.getProduct().getName());
+                }
                 
-                OrderItem orderItem = new OrderItem(order, item.getProduct(), item.getQuantity(), item.getProduct().getPrice());
-                order.getOrderItems().add(orderItem);
+                BigDecimal itemTotal = item.getProduct().getPrice()
+                    .multiply(BigDecimal.valueOf(item.getQuantity()));
+                total = total.add(itemTotal);
             }
+            
+            // Définir le total AVANT de sauvegarder
             order.setTotalAmount(total);
             
-            orderRepository.save(order);
+            // Sauvegarder d'abord la commande
+            Order savedOrder = orderRepository.save(order);
+            
+            // Puis créer les OrderItems
+            for (Cart item : items) {
+                OrderItem orderItem = new OrderItem();
+                orderItem.setOrder(savedOrder);
+                orderItem.setProduct(item.getProduct());
+                orderItem.setQuantity(item.getQuantity());
+                orderItem.setUnitPrice(item.getProduct().getPrice());
+                orderItem.setSelectedColor(item.getSelectedColor());
+                orderItem.setSelectedSize(item.getSelectedSize());
+                orderItem.setSelectedModel(item.getSelectedModel());
+                orderItem.setCustomOptions(item.getCustomOptions());
+                
+                savedOrder.getOrderItems().add(orderItem);
+            }
+            
+            // Sauvegarder à nouveau avec les items
+            savedOrder = orderRepository.save(savedOrder);
             
             // Vider le panier
             cartRepository.deleteByClient(client);
             
-            // Envoyer SMS de confirmation
+            // SMS de confirmation
             String numeroTelephone = (String) request.get("numeroTelephone");
             if (numeroTelephone != null && !numeroTelephone.isEmpty()) {
-                String numeroCommande = "CMD" + order.getId();
-                smsService.envoyerSmsConfirmationCommande(numeroTelephone, numeroCommande, total.doubleValue());
+                String numeroCommande = "CMD-" + savedOrder.getId().toString().substring(0, 8);
+                try {
+                    smsService.envoyerSmsConfirmationCommande(numeroTelephone, numeroCommande, total.doubleValue());
+                } catch (Exception e) {
+                    // Continuer même si SMS échoue
+                }
             }
             
             Map<String, Object> response = new HashMap<>();
-            response.put("id", order.getId());
-            response.put("numeroCommande", "CMD" + order.getId());
-            response.put("statut", order.getStatus().name());
-            response.put("total", order.getTotalAmount());
-            response.put("message", "Commande créée avec succès");
+            response.put("id", savedOrder.getId());
+            response.put("numeroCommande", "CMD-" + savedOrder.getId().toString().substring(0, 8));
+            response.put("statut", savedOrder.getStatus().name());
+            response.put("total", savedOrder.getTotalAmount());
+            response.put("message", "Commande créée avec succès - Total: " + total + " FCFA");
             
             return ResponseEntity.ok(response);
         } catch (Exception e) {
@@ -454,11 +622,43 @@ public class ClientController {
     @Operation(summary = "Mes commandes", description = "Liste toutes les commandes du client")
     public ResponseEntity<?> getCommandes(@RequestHeader("X-User-Id") UUID clientId) {
         try {
-            List<Order> commandes = orderRepository.findByClientIdOrderByCreatedAtDesc(clientId);
-            return ResponseEntity.ok(commandes);
+            List<Order> commandes = orderRepository.findByClientIdWithDetailsOrderByCreatedAtDesc(clientId);
+            
+            List<Map<String, Object>> response = new ArrayList<>();
+            for (Order commande : commandes) {
+                Map<String, Object> commandeData = new HashMap<>();
+                commandeData.put("id", commande.getId());
+                commandeData.put("numeroCommande", "CMD-" + commande.getId().toString().substring(0, 8));
+                commandeData.put("dateCommande", commande.getCreatedAt());
+                commandeData.put("statut", getStatusLabel(commande.getStatus()));
+                commandeData.put("statutCode", commande.getStatus().name());
+                commandeData.put("totalAmount", commande.getTotalAmount());
+                
+                // Compter les articles
+                int nombreArticles = 0;
+                if (commande.getOrderItems() != null) {
+                    for (OrderItem item : commande.getOrderItems()) {
+                        nombreArticles += item.getQuantity();
+                    }
+                }
+                commandeData.put("nombreArticles", nombreArticles);
+                
+                // Ajouter si la commande peut être annulée
+                commandeData.put("peutAnnuler", canCancelOrder(commande.getStatus()));
+                
+                response.add(commandeData);
+            }
+            
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.status(500).body("Erreur: " + e.getMessage());
         }
+    }
+
+    @GetMapping("/historique-commandes")
+    @Operation(summary = "Historique commandes", description = "Alias pour /commandes")
+    public ResponseEntity<?> getHistoriqueCommandes(@RequestHeader("X-User-Id") UUID clientId) {
+        return getCommandes(clientId);
     }
 
     @GetMapping("/commandes/{id}")
@@ -474,11 +674,89 @@ public class ClientController {
                 return ResponseEntity.badRequest().body("ID de commande invalide: " + id);
             }
             
-            Order commande = orderRepository.findById(orderId).orElse(null);
+            Order commande = orderRepository.findByIdWithDetails(orderId).orElse(null);
             if (commande == null || !commande.getClient().getId().equals(clientId)) {
                 return ResponseEntity.notFound().build();
             }
-            return ResponseEntity.ok(commande);
+            
+            // Créer une réponse détaillée
+            Map<String, Object> response = new HashMap<>();
+            response.put("id", commande.getId());
+            response.put("numeroCommande", "CMD-" + commande.getId().toString().substring(0, 8));
+            response.put("statut", getStatusLabel(commande.getStatus()));
+            response.put("statutCode", commande.getStatus().name());
+            response.put("dateCommande", commande.getCreatedAt());
+            response.put("totalAmount", commande.getTotalAmount());
+            response.put("adresseLivraison", commande.getDeliveryAddress());
+            response.put("telephoneLivraison", commande.getDeliveryPhone());
+            response.put("modePaiement", "Non spécifié");
+            response.put("needsDelivery", commande.getNeedsDelivery());
+            response.put("peutAnnuler", canCancelOrder(commande.getStatus()));
+            
+            // Articles de la commande
+            List<Map<String, Object>> articles = new ArrayList<>();
+            if (commande.getOrderItems() != null) {
+                for (OrderItem item : commande.getOrderItems()) {
+                    Map<String, Object> article = new HashMap<>();
+                    article.put("id", item.getId());
+                    article.put("produitNom", item.getProduct().getName());
+                    article.put("quantite", item.getQuantity());
+                    article.put("prixUnitaire", item.getUnitPrice());
+                    article.put("sousTotal", item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
+                    article.put("images", item.getProduct().getImages());
+                    articles.add(article);
+                }
+            }
+            response.put("articles", articles);
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Erreur: " + e.getMessage());
+        }
+    }
+    
+    private String getStatusLabel(OrderStatus status) {
+        switch (status) {
+            case PENDING: return "En attente";
+            case CONFIRMED: return "Confirmée";
+            case SHIPPED: return "Expédiée";
+            case DELIVERED: return "Livrée";
+            case CANCELLED: return "Annulée";
+            case PAID: return "Payée";
+            default: return status.name();
+        }
+    }
+    
+    private boolean canCancelOrder(OrderStatus status) {
+        // Le client peut annuler seulement si la commande n'est pas encore expédiée
+        return status == OrderStatus.PENDING || status == OrderStatus.CONFIRMED;
+    }
+    
+    @PutMapping("/commandes/{id}/annuler")
+    @Operation(summary = "Annuler commande", description = "Annule une commande si possible")
+    public ResponseEntity<?> annulerCommande(
+            @RequestHeader("X-User-Id") UUID clientId,
+            @PathVariable String id) {
+        try {
+            UUID orderId = UUID.fromString(id);
+            Order commande = orderRepository.findByIdWithDetails(orderId).orElse(null);
+            
+            if (commande == null || !commande.getClient().getId().equals(clientId)) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            if (!canCancelOrder(commande.getStatus())) {
+                return ResponseEntity.badRequest().body("Cette commande ne peut plus être annulée");
+            }
+            
+            commande.setStatus(OrderStatus.CANCELLED);
+            orderRepository.save(commande);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Commande annulée avec succès");
+            response.put("statut", "Annulée");
+            
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.status(500).body("Erreur: " + e.getMessage());
         }

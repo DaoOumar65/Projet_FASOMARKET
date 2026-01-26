@@ -55,6 +55,12 @@ public class OrderController {
         }
     }
 
+    @GetMapping("/client/historique-commandes")
+    @Operation(summary = "Historique commandes client", description = "Alias pour /mes-commandes")
+    public ResponseEntity<?> obtenirHistoriqueCommandes(@RequestHeader("X-User-Id") UUID clientId) {
+        return obtenirMesCommandes(clientId);
+    }
+
     @GetMapping("/{commandeId}")
     @Operation(summary = "Détails d'une commande", description = "Récupère les détails d'une commande")
     @ApiResponses(value = {

@@ -64,6 +64,15 @@ public class Product {
     @Column(name = "size")
     private String size;
 
+    @Column(name = "sizes", columnDefinition = "TEXT")
+    private String sizes; // JSON array: ["S", "M", "L", "XL"]
+
+    @Column(name = "colors", columnDefinition = "TEXT")
+    private String colors; // JSON array: ["Rouge", "Bleu"]
+
+    @Column(name = "origin")
+    private String origin;
+
     @Column(name = "tags", columnDefinition = "TEXT")
     private String tags;
 
@@ -213,6 +222,15 @@ public class Product {
 
     public String getSize() { return size; }
     public void setSize(String size) { this.size = size; }
+
+    public String getSizes() { return sizes; }
+    public void setSizes(String sizes) { this.sizes = sizes; }
+
+    public String getColors() { return colors; }
+    public void setColors(String colors) { this.colors = colors; }
+
+    public String getOrigin() { return origin; }
+    public void setOrigin(String origin) { this.origin = origin; }
 
     public String getTags() { return tags; }
     public void setTags(String tags) { this.tags = tags; }

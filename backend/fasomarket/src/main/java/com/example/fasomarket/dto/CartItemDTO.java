@@ -2,13 +2,14 @@ package com.example.fasomarket.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 public class CartItemDTO {
     private UUID id;
     private UUID productId;
     private String productName;
-    private String productImage;
+    private List<String> productImages;
     private BigDecimal productPrice;
     private Integer quantity;
     private BigDecimal subtotal;
@@ -25,8 +26,8 @@ public class CartItemDTO {
     public String getProductName() { return productName; }
     public void setProductName(String productName) { this.productName = productName; }
 
-    public String getProductImage() { return productImage; }
-    public void setProductImage(String productImage) { this.productImage = productImage; }
+    public List<String> getProductImages() { return productImages; }
+    public void setProductImages(List<String> productImages) { this.productImages = productImages; }
 
     public BigDecimal getProductPrice() { return productPrice; }
     public void setProductPrice(BigDecimal productPrice) { this.productPrice = productPrice; }

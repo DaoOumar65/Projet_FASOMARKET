@@ -1,40 +1,86 @@
 package com.example.fasomarket.controller;
 
-import com.example.fasomarket.dto.*;
-import com.example.fasomarket.service.PaymentService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import jakarta.validation.Valid;
+import com.example.fasomarket.service.PayDunyaService;
+import com.example.fasomarket.dto.PaymentRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import java.util.UUID;
+import java.util.*;
 
 @RestController
 @RequestMapping("/api/paiements")
-@Tag(name = "Paiements", description = "Gestion des paiements")
+@CrossOrigin(origins = "http://localhost:5173")
 public class PaymentController {
 
     @Autowired
-    private PaymentService paymentService;
+    private PayDunyaService payDunyaService;
 
-    @PostMapping("/payer")
-    @Operation(summary = "Payer une commande", description = "Effectue le paiement d'une commande")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Paiement traité"),
-        @ApiResponse(responseCode = "400", description = "Erreur de paiement"),
-        @ApiResponse(responseCode = "401", description = "Non authentifié")
-    })
-    public ResponseEntity<?> payerCommande(
-            @RequestHeader("X-User-Id") UUID clientId,
-            @Valid @RequestBody PayerCommandeRequest request) {
+    @PostMapping("/initier")
+    public ResponseEntity<?> initierPaiement(@RequestBody PaymentRequest request) {
         try {
-            String result = paymentService.payerCommande(clientId, request);
-            return ResponseEntity.ok(result);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            Map<String, Object> response = payDunyaService.initierPaiementPayDunya(request);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("success", false);
+            error.put("message", "Erreur paiement: " + e.getMessage());
+            return ResponseEntity.badRequest().body(error);
+        }
+    }
+
+    @PostMapping("/webhook")
+    public ResponseEntity<?> webhookPayDunya(@RequestBody Map<String, Object> webhookData) {
+        try {
+            payDunyaService.traiterWebhookPayDunya(webhookData);
+            return ResponseEntity.ok("OK");
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Erreur: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/statut/{transactionId}")
+    public ResponseEntity<?> verifierStatut(@PathVariable String transactionId) {
+        try {
+            Map<String, Object> statut = payDunyaService.verifierStatutPayDunya(transactionId);
+            return ResponseEntity.ok(statut);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Erreur: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/simuler-succes/{transactionId}")
+    public ResponseEntity<?> simulerSuccesTest(@PathVariable String transactionId) {
+        try {
+            Map<String, Object> webhookData = new HashMap<>();
+            webhookData.put("status", "completed");
+            webhookData.put("invoice_token", transactionId);
+            
+            payDunyaService.traiterWebhookPayDunya(webhookData);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Paiement test simulé avec succès");
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Erreur: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/simuler-echec/{transactionId}")
+    public ResponseEntity<?> simulerEchecTest(@PathVariable String transactionId) {
+        try {
+            Map<String, Object> webhookData = new HashMap<>();
+            webhookData.put("status", "failed");
+            webhookData.put("invoice_token", transactionId);
+            
+            payDunyaService.traiterWebhookPayDunya(webhookData);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Échec paiement test simulé");
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Erreur: " + e.getMessage());
         }
     }
 }

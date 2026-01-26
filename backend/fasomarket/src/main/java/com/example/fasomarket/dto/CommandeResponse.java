@@ -8,42 +8,47 @@ import java.util.UUID;
 
 public class CommandeResponse {
     private UUID id;
-    private UUID clientId;
-    private String nomClient;
+    private String numeroCommande;
     private OrderStatus statut;
-    private BigDecimal montantTotal;
+    private BigDecimal totalAmount;
+    private LocalDateTime dateCommande;
     private String adresseLivraison;
-    private LocalDateTime dateCreation;
-    private LocalDateTime dateModification;
-    private List<CommandeItemResponse> articles;
+    private Boolean needsDelivery;
+    private String telephoneLivraison;
+    private String nomClient;
+    private List<Object> articles;
 
     public CommandeResponse() {}
 
-    // Getters et Setters
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
 
-    public UUID getClientId() { return clientId; }
-    public void setClientId(UUID clientId) { this.clientId = clientId; }
-
-    public String getNomClient() { return nomClient; }
-    public void setNomClient(String nomClient) { this.nomClient = nomClient; }
+    public String getNumeroCommande() { return numeroCommande; }
+    public void setNumeroCommande(String numeroCommande) { this.numeroCommande = numeroCommande; }
 
     public OrderStatus getStatut() { return statut; }
     public void setStatut(OrderStatus statut) { this.statut = statut; }
 
-    public BigDecimal getMontantTotal() { return montantTotal; }
-    public void setMontantTotal(BigDecimal montantTotal) { this.montantTotal = montantTotal; }
+    public BigDecimal getTotalAmount() { return totalAmount; }
+    public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }
+
+    public LocalDateTime getDateCommande() { return dateCommande; }
+    public void setDateCommande(LocalDateTime dateCommande) { this.dateCommande = dateCommande; }
 
     public String getAdresseLivraison() { return adresseLivraison; }
     public void setAdresseLivraison(String adresseLivraison) { this.adresseLivraison = adresseLivraison; }
 
-    public LocalDateTime getDateCreation() { return dateCreation; }
-    public void setDateCreation(LocalDateTime dateCreation) { this.dateCreation = dateCreation; }
+    public Boolean getNeedsDelivery() { return needsDelivery; }
+    public void setNeedsDelivery(Boolean needsDelivery) { this.needsDelivery = needsDelivery; }
 
-    public LocalDateTime getDateModification() { return dateModification; }
-    public void setDateModification(LocalDateTime dateModification) { this.dateModification = dateModification; }
+    public String getTelephoneLivraison() { return telephoneLivraison; }
+    public void setTelephoneLivraison(String telephoneLivraison) { this.telephoneLivraison = telephoneLivraison; }
 
-    public List<CommandeItemResponse> getArticles() { return articles; }
-    public void setArticles(List<CommandeItemResponse> articles) { this.articles = articles; }
+    // Alias methods for VendeurController compatibility
+    public BigDecimal getMontantTotal() { return totalAmount; }
+    public LocalDateTime getDateCreation() { return dateCommande; }
+    public String getNomClient() { return nomClient; }
+    public void setNomClient(String nomClient) { this.nomClient = nomClient; }
+    public List<Object> getArticles() { return articles; }
+    public void setArticles(List<Object> articles) { this.articles = articles; }
 }
