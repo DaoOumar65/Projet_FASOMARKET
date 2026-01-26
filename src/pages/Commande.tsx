@@ -1,272 +1,115 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Package, MapPin, Clock, CheckCircle } from 'lucide-react';
-import { api } from '../services/api';
-
-interface CommandeDetail {
-  id: number;
-  numeroCommande: string;
-  statut: string;
-  total: number;
-  dateCreation: string;
-  adresseLivraison: string;
-  items: Array<{
-    id: number;
-    produitNom: string;
-    produitImage: string;
-    quantite: number;
-    prixUnitaire: number;
-    boutique: string;
-  }>;
-  historique: Array<{
-    statut: string;
-    date: string;
-    description: string;
-  }>;
-}
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { CreditCard } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { clientService } from '../services/api';
+import { usePanier } from '../hooks/usePanier';
 
 const Commande: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
-  const [commande, setCommande] = useState<CommandeDetail | null>(null);
-  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const { synchroniserAvecBackend, panierItems } = usePanier();
 
-  useEffect(() => {
-    if (id) {
-      fetchCommande();
+  // Pas de gestion d'adresses pour l'instant
+
+  const creerCommande = async () => {
+    if (panierItems.length === 0) {
+      toast.error('Votre panier est vide');
+      return;
     }
-  }, [id]);
 
-  const fetchCommande = async () => {
+    setLoading(true);
     try {
-      const response = await api.get(`/api/client/commandes/${id}`);
-      setCommande(response.data);
-    } catch (error) {
-      console.error('Erreur chargement commande:', error);
+      // Synchroniser le panier local avec le backend
+      const syncSuccess = await synchroniserAvecBackend();
+      if (!syncSuccess) {
+        toast.error('Erreur de synchronisation du panier');
+        return;
+      }
+
+      const response = await clientService.creerCommande({
+        adresseLivraison: 'Adresse de livraison par défaut, Ouagadougou',
+        numeroTelephone: '+22670000000',
+        needsDelivery: true
+      });
+
+      const commandeData = response.data;
+      console.log('Commande créée:', commandeData);
+      toast.success(commandeData.message || 'Commande créée avec succès');
+      navigate(`/paiement/${commandeData.id}`);
+    } catch (error: any) {
+      console.error('Erreur création commande:', error);
+      console.error('Détails erreur:', error.response?.data);
+      const errorMessage = error.response?.data?.message || error.response?.data || 'Erreur lors de la création de la commande';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  const getStatusColor = (statut: string) => {
-    switch (statut) {
-      case 'EN_ATTENTE': return '#f59e0b';
-      case 'CONFIRMEE': return '#3b82f6';
-      case 'PREPAREE': return '#8b5cf6';
-      case 'EXPEDIEE': return '#06b6d4';
-      case 'LIVREE': return '#10b981';
-      case 'ANNULEE': return '#ef4444';
-      default: return '#6b7280';
-    }
-  };
-
-  if (loading) {
-    return (
-      <div style={{ padding: '40px', textAlign: 'center' }}>
-        <div>Chargement de la commande...</div>
-      </div>
-    );
-  }
-
-  if (!commande) {
-    return (
-      <div style={{ padding: '40px', textAlign: 'center' }}>
-        <div>Commande introuvable</div>
-      </div>
-    );
-  }
-
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px' }}>
-      {/* Header */}
-      <div style={{ marginBottom: '30px' }}>
-        <Link
-          to="/commandes"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            color: '#2563eb',
-            textDecoration: 'none',
-            marginBottom: '16px',
-            fontSize: '14px'
-          }}
-        >
-          <ArrowLeft size={16} />
-          Retour aux commandes
-        </Link>
-        
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <h1 style={{ fontSize: '28px', fontWeight: 'bold', color: '#111827', marginBottom: '8px' }}>
-              Commande #{commande.numeroCommande}
-            </h1>
-            <p style={{ color: '#6b7280' }}>
-              Passée le {new Date(commande.dateCreation).toLocaleDateString('fr-FR')}
+    <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc', padding: '32px 0' }}>
+      <div style={{ maxWidth: '800px', margin: '0 auto', padding: '0 16px' }}>
+        <h1 style={{ fontSize: '32px', fontWeight: 'bold', color: '#1f2937', marginBottom: '32px' }}>
+          Finaliser la commande
+        </h1>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          {/* Résumé du panier */}
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+            <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#1f2937', marginBottom: '16px' }}>Résumé de votre commande</h2>
+            {panierItems.length > 0 ? (
+              <div>
+                {panierItems.map((item) => (
+                  <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #e5e7eb' }}>
+                    <div>
+                      <p style={{ fontWeight: '500', color: '#1f2937', margin: 0 }}>{item.produit.nom}</p>
+                      <p style={{ fontSize: '14px', color: '#6b7280', margin: 0 }}>Quantité: {item.quantite}</p>
+                    </div>
+                    <p style={{ fontWeight: '600', color: '#1f2937', margin: 0 }}>{(item.produit.prix * item.quantite).toLocaleString()} FCFA</p>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '16px', marginTop: '16px', borderTop: '2px solid #e5e7eb' }}>
+                  <p style={{ fontSize: '18px', fontWeight: '700', color: '#1f2937', margin: 0 }}>Total</p>
+                  <p style={{ fontSize: '18px', fontWeight: '700', color: '#2563eb', margin: 0 }}>
+                    {panierItems.reduce((sum, item) => sum + (item.produit.prix * item.quantite), 0).toLocaleString()} FCFA
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p style={{ color: '#6b7280', textAlign: 'center', margin: 0 }}>Votre panier est vide</p>
+            )}
+          </div>
+
+          {/* Information */}
+          <div style={{ backgroundColor: '#fef3c7', border: '1px solid #fbbf24', borderRadius: '8px', padding: '16px' }}>
+            <p style={{ fontSize: '14px', color: '#92400e', margin: 0 }}>
+              <strong>Information :</strong> Une adresse de livraison par défaut sera utilisée pour cette commande.
             </p>
           </div>
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '8px 16px',
-            borderRadius: '20px',
-            backgroundColor: `${getStatusColor(commande.statut)}20`,
-            color: getStatusColor(commande.statut),
-            fontSize: '14px',
-            fontWeight: '600'
-          }}>
-            <Package size={16} />
-            {commande.statut.replace('_', ' ')}
-          </div>
-        </div>
-      </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px' }}>
-        {/* Articles commandés */}
-        <div>
-          <div style={{
-            backgroundColor: 'white',
-            border: '1px solid #e5e7eb',
-            borderRadius: '8px',
-            padding: '24px',
-            marginBottom: '24px'
-          }}>
-            <h2 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', marginBottom: '20px' }}>
-              Articles commandés
-            </h2>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {commande.items.map(item => (
-                <div key={item.id} style={{
-                  display: 'flex',
-                  gap: '16px',
-                  padding: '16px',
-                  backgroundColor: '#f8fafc',
-                  borderRadius: '6px'
-                }}>
-                  <img
-                    src={item.produitImage || '/placeholder-product.jpg'}
-                    alt={item.produitNom}
-                    style={{
-                      width: '80px',
-                      height: '80px',
-                      objectFit: 'cover',
-                      borderRadius: '6px'
-                    }}
-                  />
-                  <div style={{ flex: 1 }}>
-                    <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#111827', marginBottom: '4px' }}>
-                      {item.produitNom}
-                    </h3>
-                    <p style={{ color: '#6b7280', fontSize: '14px', marginBottom: '8px' }}>
-                      Vendu par {item.boutique}
-                    </p>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ color: '#6b7280', fontSize: '14px' }}>
-                        Quantité: {item.quantite}
-                      </span>
-                      <span style={{ fontSize: '16px', fontWeight: '600', color: '#111827' }}>
-                        {(item.prixUnitaire * item.quantite).toLocaleString()} FCFA
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Suivi de commande */}
-          <div style={{
-            backgroundColor: 'white',
-            border: '1px solid #e5e7eb',
-            borderRadius: '8px',
-            padding: '24px'
-          }}>
-            <h2 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', marginBottom: '20px' }}>
-              Suivi de commande
-            </h2>
-            
-            <div style={{ position: 'relative' }}>
-              {commande.historique.map((etape, index) => (
-                <div key={index} style={{ display: 'flex', gap: '16px', marginBottom: '20px' }}>
-                  <div style={{
-                    width: '40px',
-                    height: '40px',
-                    borderRadius: '50%',
-                    backgroundColor: getStatusColor(etape.statut),
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0
-                  }}>
-                    <CheckCircle size={20} color="white" />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#111827', marginBottom: '4px' }}>
-                      {etape.statut.replace('_', ' ')}
-                    </h3>
-                    <p style={{ color: '#6b7280', fontSize: '14px', marginBottom: '4px' }}>
-                      {etape.description}
-                    </p>
-                    <p style={{ color: '#9ca3af', fontSize: '12px' }}>
-                      {new Date(etape.date).toLocaleString('fr-FR')}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Résumé */}
-        <div>
-          <div style={{
-            backgroundColor: 'white',
-            border: '1px solid #e5e7eb',
-            borderRadius: '8px',
-            padding: '24px',
-            marginBottom: '24px'
-          }}>
-            <h2 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', marginBottom: '20px' }}>
-              Résumé
-            </h2>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#6b7280' }}>Sous-total</span>
-                <span style={{ fontWeight: '500' }}>{(commande.total * 0.9).toLocaleString()} FCFA</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#6b7280' }}>Livraison</span>
-                <span style={{ fontWeight: '500' }}>{(commande.total * 0.1).toLocaleString()} FCFA</span>
-              </div>
-              <div style={{ height: '1px', backgroundColor: '#e5e7eb', margin: '8px 0' }}></div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '18px', fontWeight: '600', color: '#111827' }}>Total</span>
-                <span style={{ fontSize: '18px', fontWeight: '600', color: '#111827' }}>
-                  {commande.total.toLocaleString()} FCFA
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Adresse de livraison */}
-          <div style={{
-            backgroundColor: 'white',
-            border: '1px solid #e5e7eb',
-            borderRadius: '8px',
-            padding: '24px'
-          }}>
-            <h2 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', marginBottom: '16px' }}>
-              Adresse de livraison
-            </h2>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <MapPin size={20} color="#6b7280" style={{ flexShrink: 0, marginTop: '2px' }} />
-              <p style={{ color: '#374151', lineHeight: '1.5' }}>
-                {commande.adresseLivraison}
-              </p>
-            </div>
-          </div>
+          {/* Bouton de confirmation */}
+          <button
+            onClick={creerCommande}
+            disabled={loading}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              padding: '16px',
+              backgroundColor: loading ? '#9ca3af' : '#2563eb',
+              color: 'white',
+              border: 'none',
+              borderRadius: '12px',
+              fontSize: '18px',
+              fontWeight: '600',
+              cursor: loading ? 'not-allowed' : 'pointer'
+            }}
+          >
+            <CreditCard size={20} />
+            {loading ? 'Création...' : 'Procéder au paiement'}
+          </button>
         </div>
       </div>
     </div>

@@ -1,299 +1,165 @@
-import React, { useState, useEffect } from 'react';
-import { Bell } from 'lucide-react';
-import { useNotificationStore } from '../store/notifications';
-import { useAuthStore } from '../store';
+import { useState } from 'react';
+import { Bell, X } from 'lucide-react';
+import { useNotifications } from '../hooks/useNotifications';
 
-const NotificationDropdown: React.FC = () => {
+export default function NotificationDropdown() {
   const [isOpen, setIsOpen] = useState(false);
-  const { notifications, unreadCount, loading, fetchNotifications, markAsRead, fetchUnreadCount } = useNotificationStore();
-  const { isAuthenticated } = useAuthStore();
+  const { notifications, nombreNonLues, marquerCommeLu } = useNotifications();
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchUnreadCount();
-      const interval = setInterval(fetchUnreadCount, 30000); // Vérifier toutes les 30s
-      return () => clearInterval(interval);
-    }
-  }, [fetchUnreadCount, isAuthenticated]);
-
-  // Ajouter les styles CSS pour les animations
-  useEffect(() => {
-    const style = document.createElement('style');
-    style.textContent = `
-      @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.5; }
-      }
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-    `;
-    document.head.appendChild(style);
-    return () => document.head.removeChild(style);
-  }, []);
-
-  // Ne pas afficher le composant si l'utilisateur n'est pas connecté
-  if (!isAuthenticated) {
-    return null;
-  }
-
-  const handleToggle = () => {
-    setIsOpen(!isOpen);
-    if (!isOpen) {
-      fetchNotifications();
-    }
-  };
-
-  const handleMarkAsRead = async (id: number) => {
-    await markAsRead(id);
-  };
-
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'SUCCESS': return '#10b981';
-      case 'WARNING': return '#f59e0b';
-      case 'ERROR': return '#ef4444';
-      default: return '#3b82f6';
-    }
+  const handleNotificationClick = (notificationId: string) => {
+    marquerCommeLu(notificationId);
   };
 
   return (
     <div style={{ position: 'relative' }}>
-      <button
-        onClick={handleToggle}
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
         style={{
           position: 'relative',
           padding: '8px',
           backgroundColor: 'transparent',
           border: 'none',
-          borderRadius: '8px',
+          borderRadius: '6px',
           cursor: 'pointer',
-          color: '#374151',
-          transition: 'all 0.2s ease'
+          color: '#6b7280'
         }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.backgroundColor = '#f3f4f6';
-          e.currentTarget.style.color = '#2563eb';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.backgroundColor = 'transparent';
-          e.currentTarget.style.color = '#374151';
-        }}
-        title={`${unreadCount} notification${unreadCount > 1 ? 's' : ''} non lue${unreadCount > 1 ? 's' : ''}`}
+        onMouseEnter={(e) => (e.target as HTMLElement).style.backgroundColor = '#f3f4f6'}
+        onMouseLeave={(e) => (e.target as HTMLElement).style.backgroundColor = 'transparent'}
       >
         <Bell size={20} />
-        {unreadCount > 0 && (
+        {nombreNonLues > 0 && (
           <span style={{
             position: 'absolute',
             top: '2px',
             right: '2px',
+            minWidth: '18px',
+            height: '18px',
             backgroundColor: '#ef4444',
             color: 'white',
-            borderRadius: '50%',
-            width: '18px',
-            height: '18px',
-            fontSize: '10px',
+            borderRadius: '9px',
+            fontSize: '11px',
+            fontWeight: '600',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontWeight: 'bold',
-            animation: unreadCount > 0 ? 'pulse 2s infinite' : 'none'
+            padding: '0 4px'
           }}>
-            {unreadCount > 9 ? '9+' : unreadCount}
+            {nombreNonLues > 99 ? '99+' : nombreNonLues}
           </span>
         )}
       </button>
 
       {isOpen && (
         <>
-          {/* Overlay pour fermer le dropdown */}
-          <div
+          <div 
             style={{
               position: 'fixed',
-              inset: 0,
-              zIndex: 999
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 40
             }}
             onClick={() => setIsOpen(false)}
           />
-          
           <div style={{
             position: 'absolute',
             top: '100%',
-            right: '0',
+            right: 0,
+            marginTop: '8px',
             width: '320px',
+            maxHeight: '400px',
             backgroundColor: 'white',
             border: '1px solid #e5e7eb',
-            borderRadius: '12px',
-            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
-            zIndex: 1000,
-            maxHeight: '400px',
-            overflowY: 'auto',
-            marginTop: '8px'
+            borderRadius: '8px',
+            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
+            zIndex: 50,
+            overflow: 'hidden'
           }}>
             <div style={{
-              padding: '16px 20px',
+              padding: '16px',
               borderBottom: '1px solid #e5e7eb',
-              fontWeight: '600',
-              color: '#111827',
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between'
+              justifyContent: 'space-between',
+              alignItems: 'center'
             }}>
-              <span>Notifications</span>
-              {unreadCount > 0 && (
-                <span style={{
-                  padding: '4px 8px',
-                  backgroundColor: '#ef4444',
-                  color: 'white',
-                  borderRadius: '12px',
-                  fontSize: '12px',
-                  fontWeight: '600'
-                }}>
-                  {unreadCount}
-                </span>
-              )}
+              <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#111827', margin: 0 }}>
+                Notifications ({nombreNonLues})
+              </h3>
+              <button
+                onClick={() => setIsOpen(false)}
+                style={{
+                  padding: '4px',
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  color: '#6b7280'
+                }}
+              >
+                <X size={16} />
+              </button>
             </div>
-
-            {loading ? (
-              <div style={{ 
-                padding: '40px 20px', 
-                textAlign: 'center', 
-                color: '#6b7280',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '12px'
-              }}>
-                <div style={{
-                  width: '24px',
-                  height: '24px',
-                  border: '2px solid #e5e7eb',
-                  borderTop: '2px solid #2563eb',
-                  borderRadius: '50%',
-                  animation: 'spin 1s linear infinite'
-                }} />
-                Chargement...
-              </div>
-            ) : notifications.length === 0 ? (
-              <div style={{ 
-                padding: '40px 20px', 
-                textAlign: 'center', 
-                color: '#6b7280',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '12px'
-              }}>
-                <Bell size={32} style={{ color: '#d1d5db' }} />
-                <div>
-                  <p style={{ margin: '0 0 4px 0', fontWeight: '500' }}>Aucune notification</p>
-                  <p style={{ margin: 0, fontSize: '14px' }}>Vous êtes à jour !</p>
-                </div>
-              </div>
-            ) : (
-              <>
-                {notifications.slice(0, 10).map((notification) => (
+            
+            <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
+              {notifications.length > 0 ? (
+                notifications.map((notification) => (
                   <div
                     key={notification.id}
-                    onClick={() => !notification.lue && handleMarkAsRead(notification.id)}
+                    onClick={() => handleNotificationClick(notification.id)}
                     style={{
-                      padding: '16px 20px',
+                      padding: '12px 16px',
                       borderBottom: '1px solid #f3f4f6',
-                      cursor: notification.lue ? 'default' : 'pointer',
-                      backgroundColor: notification.lue ? 'white' : '#f8fafc',
-                      transition: 'background-color 0.2s ease'
+                      cursor: 'pointer',
+                      backgroundColor: notification.lu ? 'white' : '#eff6ff',
+                      transition: 'background-color 0.2s'
                     }}
-                    onMouseEnter={(e) => {
-                      if (!notification.lue) {
-                        e.currentTarget.style.backgroundColor = '#f1f5f9';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = notification.lue ? 'white' : '#f8fafc';
-                    }}
+                    onMouseEnter={(e) => (e.target as HTMLElement).style.backgroundColor = '#f8fafc'}
+                    onMouseLeave={(e) => (e.target as HTMLElement).style.backgroundColor = notification.lu ? 'white' : '#eff6ff'}
                   >
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: '12px'
-                    }}>
-                      <div
-                        style={{
-                          width: '8px',
-                          height: '8px',
-                          borderRadius: '50%',
-                          backgroundColor: getTypeColor(notification.type),
-                          marginTop: '6px',
-                          flexShrink: 0
-                        }}
-                      />
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                      <div style={{
+                        width: '8px',
+                        height: '8px',
+                        backgroundColor: notification.lu ? 'transparent' : '#2563eb',
+                        borderRadius: '50%',
+                        marginTop: '6px',
+                        flexShrink: 0
+                      }} />
                       <div style={{ flex: 1 }}>
-                        <div style={{
-                          fontWeight: notification.lue ? '500' : '600',
-                          color: '#111827',
+                        <p style={{
                           fontSize: '14px',
-                          marginBottom: '4px',
-                          lineHeight: '1.3'
-                        }}>
-                          {notification.titre}
-                        </div>
-                        <div style={{
-                          color: '#6b7280',
-                          fontSize: '13px',
-                          lineHeight: '1.4',
-                          marginBottom: '8px'
+                          color: '#111827',
+                          margin: '0 0 4px 0',
+                          fontWeight: notification.lu ? '400' : '500'
                         }}>
                           {notification.message}
-                        </div>
-                        <div style={{
-                          color: '#9ca3af',
-                          fontSize: '11px'
+                        </p>
+                        <p style={{
+                          fontSize: '12px',
+                          color: '#6b7280',
+                          margin: 0
                         }}>
-                          {new Date(notification.dateCreation).toLocaleString('fr-FR', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </div>
+                          {new Date(notification.createdAt).toLocaleString('fr-FR')}
+                        </p>
                       </div>
-                      {!notification.lue && (
-                        <div style={{
-                          width: '6px',
-                          height: '6px',
-                          borderRadius: '50%',
-                          backgroundColor: '#2563eb',
-                          marginTop: '8px',
-                          flexShrink: 0
-                        }} />
-                      )}
                     </div>
                   </div>
-                ))}
-                
-                {notifications.length > 10 && (
-                  <div style={{
-                    padding: '12px 20px',
-                    textAlign: 'center',
-                    borderTop: '1px solid #e5e7eb',
-                    backgroundColor: '#f8fafc'
-                  }}>
-                    <span style={{
-                      fontSize: '12px',
-                      color: '#6b7280'
-                    }}>
-                      +{notifications.length - 10} autres notifications
-                    </span>
-                  </div>
-                )}
-              </>
-            )}
+                ))
+              ) : (
+                <div style={{
+                  padding: '32px 16px',
+                  textAlign: 'center',
+                  color: '#6b7280'
+                }}>
+                  <Bell size={32} style={{ margin: '0 auto 8px', opacity: 0.5 }} />
+                  <p style={{ margin: 0, fontSize: '14px' }}>Aucune notification</p>
+                </div>
+              )}
+            </div>
           </div>
         </>
       )}
     </div>
   );
-};
-
-export default NotificationDropdown;
+}

@@ -6,7 +6,6 @@ import {
   ShoppingBag, 
   BarChart3, 
   Settings, 
-  Bell,
   Menu,
   X,
   LogOut,
@@ -15,6 +14,8 @@ import {
   Truck
 } from 'lucide-react';
 import { useAuthStore } from '../store';
+import NotificationDropdown from './NotificationDropdown';
+import BoutiqueAvatar from './BoutiqueAvatar';
 
 const sidebarItems = [
   { icon: BarChart3, label: 'Dashboard', path: '/vendeur/dashboard' },
@@ -32,6 +33,25 @@ export default function VendorLayout() {
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
   const location = useLocation();
   const { user, logout } = useAuthStore();
+  const [boutique, setBoutique] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchBoutique = async () => {
+      try {
+        const userId = localStorage.getItem('userId');
+        const response = await fetch('http://localhost:8081/api/vendeur/boutiques', {
+          headers: { 'X-User-Id': userId || '' }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setBoutique(data.boutique || data);
+        }
+      } catch (error) {
+        console.error('Erreur chargement boutique:', error);
+      }
+    };
+    fetchBoutique();
+  }, []);
 
   useEffect(() => {
     const handleResize = () => {
@@ -55,24 +75,22 @@ export default function VendorLayout() {
       {/* Logo */}
       <div style={{ padding: '20px 24px', borderBottom: '1px solid #e5e7eb' }}>
         <Link to="/vendeur/dashboard" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
-          <div style={{
-            width: '42px',
-            height: '42px',
-            backgroundColor: '#2563eb',
-            borderRadius: '10px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginRight: '12px'
-          }}>
-            <span style={{ color: 'white', fontWeight: 'bold', fontSize: '20px' }}>F</span>
+          <BoutiqueAvatar 
+            image={boutique?.logoUrl} 
+            nom={boutique?.nom || 'FasoMarket'} 
+            size={42} 
+          />
+          <div style={{ marginLeft: '12px' }}>
+            <span style={{ fontSize: '19px', fontWeight: '700', color: '#111827', display: 'block' }}>
+              {boutique?.nom || 'FasoMarket'}
+            </span>
+            <span style={{ fontSize: '12px', color: '#6b7280' }}>Vendeur</span>
           </div>
-          <span style={{ fontSize: '19px', fontWeight: '700', color: '#111827' }}>FasoMarket</span>
         </Link>
       </div>
 
       {/* Navigation */}
-      <nav style={{ flex: 1, padding: '20px 16px', overflowY: 'auto' }}>
+      <nav style={{ flex: 1, padding: '16px 0' }}>
         {sidebarItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
@@ -84,54 +102,35 @@ export default function VendorLayout() {
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                padding: '12px 16px',
-                marginBottom: '4px',
+                padding: '12px 24px',
                 color: isActive ? '#2563eb' : '#6b7280',
                 textDecoration: 'none',
                 backgroundColor: isActive ? '#eff6ff' : 'transparent',
-                borderRadius: '10px',
+                borderRight: isActive ? '3px solid #2563eb' : 'none',
                 transition: 'all 0.2s'
               }}
               onMouseEnter={(e) => {
                 if (!isActive) {
                   (e.target as HTMLElement).style.backgroundColor = '#f9fafb';
+                  (e.target as HTMLElement).style.color = '#374151';
                 }
               }}
               onMouseLeave={(e) => {
                 if (!isActive) {
                   (e.target as HTMLElement).style.backgroundColor = 'transparent';
+                  (e.target as HTMLElement).style.color = '#6b7280';
                 }
               }}
             >
-              <Icon size={20} style={{ marginRight: '12px', flexShrink: 0 }} />
-              <span style={{ fontSize: '15px', fontWeight: isActive ? '600' : '500' }}>{item.label}</span>
+              <Icon size={20} style={{ marginRight: '12px' }} />
+              <span style={{ fontSize: '14px', fontWeight: '500' }}>{item.label}</span>
             </Link>
           );
         })}
       </nav>
 
-      {/* User info */}
-      <div style={{ padding: '16px 20px', borderTop: '1px solid #e5e7eb' }}>
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
-          <div style={{
-            width: '36px',
-            height: '36px',
-            backgroundColor: '#eff6ff',
-            borderRadius: '50%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginRight: '12px'
-          }}>
-            <User size={18} style={{ color: '#2563eb' }} />
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontSize: '14px', fontWeight: '600', color: '#111827', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {user?.nomComplet}
-            </p>
-            <p style={{ fontSize: '12px', color: '#6b7280', margin: 0 }}>Vendeur</p>
-          </div>
-        </div>
+      {/* Logout button */}
+      <div style={{ padding: '16px 24px', borderTop: '1px solid #e5e7eb' }}>
         <button
           onClick={handleLogout}
           style={{
@@ -142,7 +141,7 @@ export default function VendorLayout() {
             padding: '10px',
             backgroundColor: 'transparent',
             border: '1px solid #e5e7eb',
-            borderRadius: '8px',
+            borderRadius: '6px',
             color: '#6b7280',
             fontSize: '14px',
             fontWeight: '500',
@@ -263,27 +262,28 @@ export default function VendorLayout() {
             </button>
           )}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginLeft: isDesktop ? 0 : 'auto' }}>
-            <button style={{
-              position: 'relative',
-              padding: '8px',
-              backgroundColor: 'transparent',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              color: '#6b7280'
-            }}>
-              <Bell size={20} />
-              <span style={{
-                position: 'absolute',
-                top: '4px',
-                right: '4px',
-                width: '8px',
-                height: '8px',
-                backgroundColor: '#ef4444',
-                borderRadius: '50%'
-              }}></span>
-            </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginLeft: 'auto' }}>
+            <NotificationDropdown />
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+              <div style={{
+                width: '32px',
+                height: '32px',
+                backgroundColor: '#eff6ff',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <User size={16} style={{ color: '#2563eb' }} />
+              </div>
+              <div>
+                <p style={{ fontSize: '14px', fontWeight: '600', color: '#111827', margin: 0 }}>
+                  {user?.nomComplet}
+                </p>
+                <p style={{ fontSize: '11px', color: '#6b7280', margin: 0 }}>Vendeur</p>
+              </div>
+            </div>
           </div>
         </header>
 

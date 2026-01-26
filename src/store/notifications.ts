@@ -22,6 +22,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
       const notifications = await notificationService.getNotifications();
       set({ notifications, loading: false });
     } catch (error) {
+      console.error('Erreur fetch notifications:', error);
       set({ loading: false });
     }
   },

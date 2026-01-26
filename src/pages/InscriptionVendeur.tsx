@@ -8,7 +8,7 @@ const InscriptionVendeur: React.FC = () => {
   const [formData, setFormData] = useState({
     nomComplet: '',
     telephone: '',
-    carteIdentite: '',
+    email: '',
     motDePasse: '',
     confirmMotDePasse: ''
   });
@@ -37,8 +37,8 @@ const InscriptionVendeur: React.FC = () => {
       await authService.registerVendor({
         nomComplet: formData.nomComplet,
         telephone: formData.telephone,
-        motDePasse: formData.motDePasse,
-        carteIdentite: formData.carteIdentite
+        email: formData.email,
+        motDePasse: formData.motDePasse
       });
 
       toast.success('Inscription réussie ! Votre compte est en attente de validation.');
@@ -67,11 +67,6 @@ const InscriptionVendeur: React.FC = () => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     
-    // Limiter la carte d'identité à 9 caractères (B + 8 chiffres)
-    if (name === 'carteIdentite' && value.length > 9) {
-      return;
-    }
-    
     // Limiter les mots de passe à 8 caractères
     if ((name === 'motDePasse' || name === 'confirmMotDePasse') && value.length > 8) {
       return;
@@ -85,12 +80,12 @@ const InscriptionVendeur: React.FC = () => {
 
   const nextStep = () => {
     if (step === 1) {
-      if (!formData.nomComplet || !formData.telephone || !formData.carteIdentite) {
+      if (!formData.nomComplet || !formData.telephone || !formData.email) {
         toast.error('Veuillez remplir tous les champs obligatoires');
         return;
       }
-      if (!/^B[0-9]{8}$/.test(formData.carteIdentite)) {
-        toast.error('Format de carte d\'identité invalide (ex: B10802321)');
+      if (!/\S+@\S+\.\S+/.test(formData.email)) {
+        toast.error('Veuillez entrer une adresse email valide');
         return;
       }
     }
@@ -308,7 +303,7 @@ const InscriptionVendeur: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Carte d'Identité */}
+                {/* Email */}
                 <div>
                   <label style={{
                     display: 'block',
@@ -317,17 +312,16 @@ const InscriptionVendeur: React.FC = () => {
                     color: '#374151',
                     marginBottom: '8px'
                   }}>
-                    Carte d'identité *
+                    Adresse email *
                   </label>
                   <div style={{ position: 'relative' }}>
                     <input
-                      type="text"
-                      name="carteIdentite"
-                      value={formData.carteIdentite}
+                      type="email"
+                      name="email"
+                      value={formData.email}
                       onChange={handleChange}
-                      placeholder="Format: B12345678"
+                      placeholder="votre@email.com"
                       required
-                      maxLength={9}
                       style={{
                         width: '100%',
                         padding: '16px',
@@ -340,13 +334,6 @@ const InscriptionVendeur: React.FC = () => {
                       onFocus={(e) => (e.target as HTMLInputElement).style.borderColor = '#2563eb'}
                       onBlur={(e) => (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'}
                     />
-                    <div style={{
-                      fontSize: '12px',
-                      color: '#6b7280',
-                      marginTop: '4px'
-                    }}>
-                      Format requis: B suivi de 8 chiffres (ex: B10802321)
-                    </div>
                   </div>
                 </div>
               </div>

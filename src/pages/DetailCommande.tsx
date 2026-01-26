@@ -1,330 +1,204 @@
-import React, { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Package, Clock, CheckCircle, XCircle, MapPin, CreditCard } from 'lucide-react';
-import { api } from '../services/api';
+import { Package, MapPin, CreditCard, Phone, Clock, ArrowLeft, XCircle } from 'lucide-react';
+import { STATUS_LABELS } from '../constants/orderStatus';
+import toast from 'react-hot-toast';
 
-interface CommandeDetail {
-  id: string | number;
-  numeroCommande: string;
-  statut: 'EN_ATTENTE' | 'CONFIRMEE' | 'PREPAREE' | 'EXPEDIEE' | 'LIVREE' | 'ANNULEE';
+interface CommandeDetails {
+  id: string;
+  numero: string;
+  statut: string;
   total: number;
-  dateCreation: string;
   adresseLivraison: string;
   methodePaiement: string;
-  instructions?: string;
-  items?: Array<{
-    id: number;
+  numeroTelephone: string;
+  dateCreation: string;
+  peutAnnuler?: boolean;
+  items: Array<{
+    id: string;
+    quantite: number;
+    prixUnitaire: number;
     produit: {
       id: string;
       nom: string;
-      prix: number;
       images: string[];
     };
-    quantite: number;
-    prixUnitaire: number;
   }>;
 }
 
-const DetailCommande: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+const statutConfig: Record<string, { label: string; color: string; icon: any }> = {
+  PENDING: { label: STATUS_LABELS.PENDING, color: 'bg-yellow-100 text-yellow-800', icon: Clock },
+  CONFIRMED: { label: STATUS_LABELS.CONFIRMED, color: 'bg-blue-100 text-blue-800', icon: Package },
+  SHIPPED: { label: STATUS_LABELS.SHIPPED, color: 'bg-purple-100 text-purple-800', icon: Package },
+  DELIVERED: { label: STATUS_LABELS.DELIVERED, color: 'bg-green-100 text-green-800', icon: Package },
+  CANCELLED: { label: STATUS_LABELS.CANCELLED, color: 'bg-red-100 text-red-800', icon: XCircle }
+};
+
+export default function DetailCommande() {
+  const { id } = useParams();
   const navigate = useNavigate();
-  const [commande, setCommande] = useState<CommandeDetail | null>(null);
+  const [commande, setCommande] = useState<CommandeDetails | null>(null);
   const [loading, setLoading] = useState(true);
+  const [cancelling, setCancelling] = useState(false);
+
+  const annulerCommande = async () => {
+    if (!window.confirm('Êtes-vous sûr de vouloir annuler cette commande ?')) return;
+    
+    setCancelling(true);
+    try {
+      const userId = localStorage.getItem('userId');
+      const response = await fetch(`http://localhost:8081/api/client/commandes/${id}/annuler`, {
+        method: 'PUT',
+        headers: { 'X-User-Id': userId || '' }
+      });
+      
+      if (response.ok) {
+        toast.success('Commande annulée avec succès');
+        // Recharger les détails de la commande
+        const updatedResponse = await fetch(`http://localhost:8081/api/client/commandes/${id}`, {
+          headers: { 'X-User-Id': userId || '' }
+        });
+        if (updatedResponse.ok) {
+          setCommande(await updatedResponse.json());
+        }
+      } else {
+        toast.error('Erreur lors de l\'annulation');
+      }
+    } catch (error) {
+      toast.error('Erreur lors de l\'annulation');
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchCommandeDetail = async () => {
+    const fetchCommande = async () => {
       try {
-        // Skip backend API call - use localStorage directly
-        // const response = await api.get(`/api/client/commandes/${id}`);
-        // setCommande(response.data);
-        
-        // Charger depuis localStorage
-        const commandesLocales = JSON.parse(localStorage.getItem('fasomarket_commandes') || '[]');
-        const commandeTrouvee = commandesLocales.find((cmd: any) => 
-          cmd.id === id || cmd.id.toString() === id
-        );
-        
-        if (commandeTrouvee) {
-          setCommande({
-            ...commandeTrouvee,
-            items: commandeTrouvee.items || []
-          });
+        const userId = localStorage.getItem('userId');
+        const response = await fetch(`http://localhost:8081/api/client/commandes/${id}`, {
+          headers: { 'X-User-Id': userId || '' }
+        });
+        if (response.ok) {
+          setCommande(await response.json());
         }
       } catch (error) {
-        console.error('Erreur chargement detail commande:', error);
+        console.error('Erreur:', error);
       } finally {
         setLoading(false);
       }
     };
-
-    fetchCommandeDetail();
+    fetchCommande();
   }, [id]);
 
-  const getStatusColor = (statut: string) => {
-    switch (statut) {
-      case 'EN_ATTENTE': return '#f59e0b';
-      case 'CONFIRMEE': return '#3b82f6';
-      case 'PREPAREE': return '#8b5cf6';
-      case 'EXPEDIEE': return '#06b6d4';
-      case 'LIVREE': return '#10b981';
-      case 'ANNULEE': return '#ef4444';
-      default: return '#6b7280';
-    }
-  };
+  if (loading) return <div className="text-center py-8">Chargement...</div>;
+  if (!commande) return <div className="text-center py-8">Commande introuvable</div>;
 
-  const getStatusIcon = (statut: string) => {
-    switch (statut) {
-      case 'EN_ATTENTE': return <Clock size={20} />;
-      case 'CONFIRMEE': case 'PREPAREE': case 'EXPEDIEE': return <Package size={20} />;
-      case 'LIVREE': return <CheckCircle size={20} />;
-      case 'ANNULEE': return <XCircle size={20} />;
-      default: return <Package size={20} />;
-    }
-  };
-
-  if (loading) {
-    return (
-      <div style={{ padding: '40px', textAlign: 'center' }}>
-        <div>Chargement des details...</div>
-      </div>
-    );
-  }
-
-  if (!commande) {
-    return (
-      <div style={{ padding: '40px', textAlign: 'center' }}>
-        <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', marginBottom: '16px' }}>Commande introuvable</h2>
-        <button
-          onClick={() => navigate('/client/commandes')}
-          style={{
-            padding: '12px 24px',
-            backgroundColor: '#2563eb',
-            color: 'white',
-            border: 'none',
-            borderRadius: '6px',
-            cursor: 'pointer'
-          }}
-        >
-          Retour aux commandes
-        </button>
-      </div>
-    );
-  }
+  const config = statutConfig[commande?.statut] || statutConfig.PENDING;
+  const Icon = config.icon;
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px' }}>
-      <div style={{ marginBottom: '30px' }}>
-        <button
-          onClick={() => navigate('/client/commandes')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            color: '#2563eb',
-            backgroundColor: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-            fontSize: '16px',
-            marginBottom: '16px'
-          }}
-        >
-          <ArrowLeft size={20} style={{ marginRight: '8px' }} />
-          Retour aux commandes
-        </button>
-        
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+    <div className="max-w-4xl mx-auto p-6">
+      <button onClick={() => navigate(-1)} className="flex items-center text-gray-600 mb-6 hover:text-gray-900">
+        <ArrowLeft className="w-5 h-5 mr-2" />
+        Retour
+      </button>
+
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div className="flex justify-between items-start mb-4">
           <div>
-            <h1 style={{ fontSize: '28px', fontWeight: 'bold', color: '#111827', marginBottom: '8px' }}>
-              Commande #{commande.numeroCommande}
-            </h1>
-            <p style={{ color: '#6b7280' }}>
-              Passee le {new Date(commande.dateCreation).toLocaleDateString('fr-FR')}
-            </p>
+            <h1 className="text-2xl font-bold mb-2">{commande.numero || commande.numeroCommande || `CMD-${commande.id}`}</h1>
+            <p className="text-gray-600">{commande.dateCreation ? new Date(commande.dateCreation).toLocaleString('fr-FR') : commande.dateCommande ? new Date(commande.dateCommande).toLocaleString('fr-FR') : 'Date inconnue'}</p>
           </div>
-          
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '8px 16px',
-            borderRadius: '20px',
-            backgroundColor: `${getStatusColor(commande.statut)}20`,
-            color: getStatusColor(commande.statut),
-            fontSize: '14px',
-            fontWeight: '600'
-          }}>
-            {getStatusIcon(commande.statut)}
-            {commande.statut.replace('_', ' ')}
+          <span className={`px-4 py-2 rounded-full text-sm font-semibold flex items-center ${config.color}`}>
+            <Icon className="w-4 h-4 mr-2" />
+            {config.label}
+          </span>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-6 mt-6">
+          <div className="flex items-start">
+            <MapPin className="w-5 h-5 text-gray-400 mr-3 mt-1" />
+            <div>
+              <p className="font-semibold mb-1">Adresse de livraison</p>
+              <p className="text-gray-600">{commande.adresseLivraison || 'Non spécifiée'}</p>
+            </div>
+          </div>
+
+          <div className="flex items-start">
+            <CreditCard className="w-5 h-5 text-gray-400 mr-3 mt-1" />
+            <div>
+              <p className="font-semibold mb-1">Mode de paiement</p>
+              <p className="text-gray-600">{commande.methodePaiement?.replace('_', ' ') || 'Non spécifié'}</p>
+            </div>
+          </div>
+
+          <div className="flex items-start">
+            <Phone className="w-5 h-5 text-gray-400 mr-3 mt-1" />
+            <div>
+              <p className="font-semibold mb-1">Téléphone</p>
+              <p className="text-gray-600">{commande.numeroTelephone || 'Non spécifié'}</p>
+            </div>
           </div>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '32px' }}>
-        <div>
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '8px',
-            border: '1px solid #e5e7eb',
-            overflow: 'hidden'
-          }}>
-            <div style={{
-              backgroundColor: '#f9fafb',
-              padding: '20px',
-              borderBottom: '1px solid #e5e7eb'
-            }}>
-              <h2 style={{ fontSize: '18px', fontWeight: '600', color: '#111827' }}>Articles commandes</h2>
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h2 className="text-xl font-bold mb-4">Articles commandés</h2>
+        <div className="space-y-4">
+          {(commande.items || []).map((item) => (
+            <div key={item.id} className="flex items-center border-b pb-4">
+              <img
+                src={item.produit?.images?.[0] || '/placeholder.png'}
+                alt={item.produit?.nom || 'Produit'}
+                className="w-20 h-20 object-cover rounded mr-4"
+              />
+              <div className="flex-1">
+                <h3 className="font-semibold">{item.produit?.nom || 'Produit inconnu'}</h3>
+                <p className="text-gray-600">Quantité: {item.quantite || 0}</p>
+              </div>
+              <p className="font-bold">{((item.prixUnitaire || 0) * (item.quantite || 0)).toLocaleString()} FCFA</p>
             </div>
-            
-            <div>
-              {commande.items && commande.items.length > 0 ? (
-                commande.items.filter(item => item && item.produit).map((item, index) => (
-                  <div key={item.id} style={{
-                    padding: '20px',
-                    borderBottom: index < commande.items!.filter(i => i && i.produit).length - 1 ? '1px solid #f3f4f6' : 'none',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '16px'
-                  }}>
-                    <div style={{
-                      width: '64px',
-                      height: '64px',
-                      backgroundColor: '#f3f4f6',
-                      borderRadius: '8px',
-                      overflow: 'hidden',
-                      flexShrink: 0
-                    }}>
-                      {item.produit?.images?.[0] ? (
-                        <img
-                          src={item.produit.images[0]}
-                          alt={item.produit.nom || 'Produit'}
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        />
-                      ) : (
-                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <Package size={24} color="#9ca3af" />
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div style={{ flex: 1 }}>
-                      <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#111827', marginBottom: '4px' }}>
-                        {item.produit?.nom || 'Produit inconnu'}
-                      </h3>
-                      <p style={{ color: '#6b7280', fontSize: '14px' }}>
-                        Quantite: {item.quantite} x {(item.prixUnitaire || 0).toLocaleString()} FCFA
-                      </p>
-                    </div>
-                    
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '16px', fontWeight: '600', color: '#111827' }}>
-                        {((item.prixUnitaire || 0) * item.quantite).toLocaleString()} FCFA
-                      </div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>
-                  Aucun article trouve pour cette commande
-                </div>
-              )}
-            </div>
-          </div>
+          ))}
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '8px',
-            border: '1px solid #e5e7eb',
-            padding: '20px'
-          }}>
-            <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#111827', marginBottom: '16px' }}>Resume</h3>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#6b7280' }}>Sous-total</span>
-                <span style={{ fontWeight: '500' }}>{(commande.total - 1500).toLocaleString()} FCFA</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#6b7280' }}>Livraison</span>
-                <span style={{ fontWeight: '500' }}>1 500 FCFA</span>
-              </div>
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                paddingTop: '8px',
-                borderTop: '1px solid #e5e7eb',
-                fontSize: '18px',
-                fontWeight: '600'
-              }}>
-                <span>Total</span>
-                <span style={{ color: '#2563eb' }}>{commande.total.toLocaleString()} FCFA</span>
-              </div>
+        <div className="mt-6 pt-4 border-t">
+          <div className="flex justify-between items-center">
+            <div className="text-xl font-bold">
+              <span>Total: {(commande.total || 0).toLocaleString()} FCFA</span>
+            </div>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              {commande.peutAnnuler && (
+                <button
+                  onClick={annulerCommande}
+                  disabled={cancelling}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-2"
+                >
+                  <XCircle className="w-4 h-4" />
+                  {cancelling ? 'Annulation...' : 'Annuler la commande'}
+                </button>
+              )}
+              <button
+                onClick={() => navigate(`/paiement/${id}`)}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#10b981',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <CreditCard size={16} />
+                Payer maintenant
+              </button>
             </div>
           </div>
-
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '8px',
-            border: '1px solid #e5e7eb',
-            padding: '20px'
-          }}>
-            <h3 style={{
-              fontSize: '16px',
-              fontWeight: '600',
-              color: '#111827',
-              marginBottom: '12px',
-              display: 'flex',
-              alignItems: 'center'
-            }}>
-              <MapPin size={16} style={{ marginRight: '8px' }} />
-              Adresse de livraison
-            </h3>
-            <p style={{ color: '#374151', lineHeight: '1.5' }}>
-              {commande.adresseLivraison}
-            </p>
-          </div>
-
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '8px',
-            border: '1px solid #e5e7eb',
-            padding: '20px'
-          }}>
-            <h3 style={{
-              fontSize: '16px',
-              fontWeight: '600',
-              color: '#111827',
-              marginBottom: '12px',
-              display: 'flex',
-              alignItems: 'center'
-            }}>
-              <CreditCard size={16} style={{ marginRight: '8px' }} />
-              Paiement
-            </h3>
-            <p style={{ color: '#374151' }}>
-              {commande.methodePaiement === 'MOBILE_MONEY' ? 'Mobile Money' : 'Paiement a la livraison'}
-            </p>
-          </div>
-
-          {commande.instructions && (
-            <div style={{
-              backgroundColor: 'white',
-              borderRadius: '8px',
-              border: '1px solid #e5e7eb',
-              padding: '20px'
-            }}>
-              <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#111827', marginBottom: '12px' }}>
-                Instructions de livraison
-              </h3>
-              <p style={{ color: '#374151', lineHeight: '1.5' }}>
-                {commande.instructions}
-              </p>
-            </div>
-          )}
         </div>
       </div>
     </div>
   );
-};
-
-export default DetailCommande;
+}

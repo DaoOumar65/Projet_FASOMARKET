@@ -38,29 +38,10 @@ export const notificationService = {
     
     try {
       const response = await api.get(`/api/${role}/notifications`);
-      return response.data;
+      return response.data || [];
     } catch (error) {
       console.error('Erreur récupération notifications:', error);
-      
-      // Fallback avec des notifications de test
-      return [
-        {
-          id: 1,
-          titre: 'Bienvenue sur FasoMarket',
-          message: 'Votre compte a été créé avec succès. Explorez notre marketplace !',
-          type: 'SUCCESS',
-          lue: false,
-          dateCreation: new Date().toISOString()
-        },
-        {
-          id: 2,
-          titre: 'Complétez votre profil',
-          message: 'Ajoutez vos informations personnelles pour une meilleure expérience.',
-          type: 'INFO',
-          lue: false,
-          dateCreation: new Date(Date.now() - 3600000).toISOString()
-        }
-      ];
+      return [];
     }
   },
 
@@ -88,11 +69,10 @@ export const notificationService = {
     
     try {
       const response = await api.get(`/api/${role}/notifications/compteur`);
-      return response.data;
+      return response.data || 0;
     } catch (error) {
       console.error('Erreur compteur notifications:', error);
-      // Fallback: retourner 2 pour simuler des notifications non lues
-      return 2;
+      return 0;
     }
   }
 };

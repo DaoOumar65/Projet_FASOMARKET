@@ -18,6 +18,16 @@ interface Produit {
     };
   };
   dateCreation: string;
+  details?: {
+    taille?: string[];
+    couleur?: string[];
+    marque?: string;
+    matiere?: string;
+    poids?: string;
+    dimensions?: string;
+    garantie?: string;
+    origine?: string;
+  };
 }
 
 export default function AdminProduits() {
@@ -39,27 +49,13 @@ export default function AdminProduits() {
       
       // Mapper les données avec fallbacks et images
       const produitsFormates = Array.isArray(data) ? data.map((produit: any) => {
-        // Gérer les images
+        // Gérer les images - utiliser les vraies URLs du backend
         let images = [];
         if (produit.images) {
           if (typeof produit.images === 'string') {
-            images = produit.images.split(',').map((img: string) => img.trim());
+            images = produit.images.split(',').map((img: string) => img.trim()).filter(Boolean);
           } else if (Array.isArray(produit.images)) {
-            images = produit.images;
-          }
-        }
-        
-        // Fallback vers des images par défaut selon le nom du produit
-        if (images.length === 0) {
-          const nom = (produit.nom || produit.name || '').toLowerCase();
-          if (nom.includes('chemise')) {
-            images = ['https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=400'];
-          } else if (nom.includes('pantalon') || nom.includes('bogolan')) {
-            images = ['https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=400'];
-          } else if (nom.includes('boubou')) {
-            images = ['https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400'];
-          } else {
-            images = ['https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=400'];
+            images = produit.images.filter(Boolean);
           }
         }
         
@@ -266,9 +262,6 @@ export default function AdminProduits() {
                       height: '100%',
                       objectFit: 'cover'
                     }}
-                    onError={(e) => {
-                      e.currentTarget.src = 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=400';
-                    }}
                   />
                 ) : (
                   <div style={{
@@ -392,6 +385,51 @@ export default function AdminProduits() {
                     <span>{new Date(produit.dateCreation).toLocaleDateString('fr-FR')}</span>
                   </div>
                 </div>
+
+                {/* Détails produit */}
+                {produit.details && (produit.details.taille?.length || produit.details.couleur?.length || produit.details.marque) && (
+                  <div style={{
+                    padding: '10px',
+                    backgroundColor: '#f8fafc',
+                    borderRadius: '8px',
+                    marginBottom: '16px',
+                    fontSize: '12px'
+                  }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      {produit.details.marque && (
+                        <span style={{
+                          padding: '3px 8px',
+                          backgroundColor: '#dbeafe',
+                          color: '#2563eb',
+                          borderRadius: '4px',
+                          fontWeight: '500'
+                        }}>
+                          🏷️ {produit.details.marque}
+                        </span>
+                      )}
+                      {produit.details.taille && produit.details.taille.length > 0 && (
+                        <span style={{
+                          padding: '3px 8px',
+                          backgroundColor: '#f3f4f6',
+                          color: '#374151',
+                          borderRadius: '4px'
+                        }}>
+                          📏 {produit.details.taille.slice(0, 3).join(', ')}{produit.details.taille.length > 3 ? '...' : ''}
+                        </span>
+                      )}
+                      {produit.details.couleur && produit.details.couleur.length > 0 && (
+                        <span style={{
+                          padding: '3px 8px',
+                          backgroundColor: '#f3f4f6',
+                          color: '#374151',
+                          borderRadius: '4px'
+                        }}>
+                          🎨 {produit.details.couleur.slice(0, 3).join(', ')}{produit.details.couleur.length > 3 ? '...' : ''}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Actions */}
                 <div style={{ display: 'flex', gap: '8px' }}>

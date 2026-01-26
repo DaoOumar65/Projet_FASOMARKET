@@ -73,6 +73,18 @@ export interface Boutique {
 }
 
 // Produit
+export interface ProduitDetails {
+  taille?: string[];
+  couleur?: string[];
+  marque?: string;
+  matiere?: string;
+  poids?: string;
+  dimensions?: string;
+  garantie?: string;
+  origine?: string;
+  [key: string]: any; // Pour d'autres attributs dynamiques
+}
+
 export interface Produit {
   id: string;
   nom: string;
@@ -83,15 +95,53 @@ export interface Produit {
   disponible: boolean;
   quantiteStock: number;
   categorie: string;
+  details?: ProduitDetails;
+  // Champs legacy pour compatibilité
   poids?: number;
   dimensions?: string;
 }
 
 // Panier
+export interface CommandeResponse {
+  id: string;
+  numeroCommande: string;
+  statut: string;
+  total: number;
+  message: string;
+}
+
+export interface ProduitVariante {
+  id: string;
+  produitId: string;
+  couleur?: string;
+  taille?: string;
+  modele?: string;
+  prixAjustement: number;
+  stock: number;
+  sku: string;
+}
+
 export interface PanierItem {
   id: string;
-  produit: Produit;
+  produit: {
+    id: string;
+    nom: string;
+    prix: number;
+    images: string[];
+    boutique?: {
+      id: string;
+      nom: string;
+      adresse: string;
+      livraison: boolean;
+      fraisLivraison: number;
+    };
+  };
   quantite: number;
+  varianteId?: string;
+  variante?: ProduitVariante;
+  couleurSelectionnee?: string;
+  tailleSelectionnee?: string;
+  modeleSelectionne?: string;
 }
 
 // Commande
@@ -115,12 +165,13 @@ export interface Commande {
 
 // Notification
 export interface Notification {
-  id: number;
-  titre: string;
+  id: string;
+  title: string;
   message: string;
-  type: 'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR';
-  lue: boolean;
-  dateCreation: string;
+  type: 'ORDER' | 'PAYMENT' | 'DELIVERY' | 'SYSTEM';
+  referenceId?: string;
+  isRead: boolean;
+  createdAt: string;
 }
 
 // Adresse client
@@ -182,8 +233,16 @@ export interface CreateProduitData {
   images: string[];
   categorie: string;
   quantiteStock: number;
-  poids?: number;
+  // Détails du produit
+  tailles?: string[];
+  couleurs?: string[];
+  marque?: string;
+  matiere?: string;
+  poids?: string;
   dimensions?: string;
+  garantie?: string;
+  origine?: string;
+  attributsPersonnalises?: { [key: string]: any };
 }
 
 // Type pour la création de commande

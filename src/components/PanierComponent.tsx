@@ -1,5 +1,5 @@
 import React from 'react';
-import { usePanier } from '../contexts/PanierContext';
+import { usePanier } from '../hooks/usePanier';
 
 const PanierComponent: React.FC = () => {
   const { panierItems, total, supprimerDuPanier } = usePanier();

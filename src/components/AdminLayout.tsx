@@ -15,22 +15,56 @@ import {
   Shield
 } from 'lucide-react';
 import { useAuthStore } from '../store';
+import { useNotificationStore } from '../store/notifications';
+import { adminService } from '../services/api';
+import NotificationDropdown from './NotificationDropdown';
 
 const sidebarItems = [
   { icon: BarChart3, label: 'Dashboard', path: '/admin/dashboard' },
-  { icon: Users, label: 'Utilisateurs', path: '/admin/utilisateurs' },
-  { icon: Shield, label: 'Validations', path: '/admin/validations' },
-  { icon: Store, label: 'Boutiques', path: '/admin/boutiques' },
-  { icon: Package, label: 'Produits', path: '/admin/produits' },
-  { icon: ShoppingBag, label: 'Commandes', path: '/admin/commandes' },
+  { icon: Users, label: 'Utilisateurs', path: '/admin/utilisateurs', badge: 'utilisateurs' },
+  { icon: Shield, label: 'Validations', path: '/admin/validations', badge: 'validations' },
+  { icon: Store, label: 'Boutiques', path: '/admin/boutiques', badge: 'boutiques' },
+  { icon: Package, label: 'Produits', path: '/admin/produits', badge: 'produits' },
+  { icon: ShoppingBag, label: 'Commandes', path: '/admin/commandes', badge: 'commandes' },
   { icon: Settings, label: 'Paramètres', path: '/admin/parametres' },
 ];
 
 export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
+  const [badges, setBadges] = useState({ 
+    utilisateurs: 0, 
+    validations: 0, 
+    boutiques: 0, 
+    produits: 0, 
+    commandes: 0 
+  });
   const location = useLocation();
   const { user, logout } = useAuthStore();
+  const { fetchUnreadCount } = useNotificationStore();
+
+  // Charger les badges depuis l'API
+  const fetchBadges = async () => {
+    try {
+      const response = await adminService.getBadges();
+      setBadges(response.data || { 
+        utilisateurs: 0, 
+        validations: 0, 
+        boutiques: 0, 
+        produits: 0, 
+        commandes: 0 
+      });
+    } catch (error) {
+      console.error('Erreur chargement badges:', error);
+      setBadges({ 
+        utilisateurs: 0, 
+        validations: 0, 
+        boutiques: 0, 
+        produits: 0, 
+        commandes: 0 
+      });
+    }
+  };
 
   useEffect(() => {
     const handleResize = () => {
@@ -41,8 +75,17 @@ export default function AdminLayout() {
     };
 
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+    fetchUnreadCount(); // Charger les notifications
+    fetchBadges(); // Charger les badges
+    
+    // Actualiser les badges toutes les 30 secondes
+    const interval = setInterval(fetchBadges, 30000);
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearInterval(interval);
+    };
+  }, [fetchUnreadCount]);
 
   const handleLogout = () => {
     logout();
@@ -105,45 +148,44 @@ export default function AdminLayout() {
             >
               <Icon size={20} style={{ marginRight: '12px' }} />
               <span style={{ fontSize: '14px', fontWeight: '500' }}>{item.label}</span>
+              {item.badge && badges[item.badge] > 0 && (
+                <span style={{
+                  marginLeft: 'auto',
+                  backgroundColor: '#ef4444',
+                  color: 'white',
+                  borderRadius: '50%',
+                  width: '20px',
+                  height: '20px',
+                  fontSize: '11px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 'bold'
+                }}>
+                  {badges[item.badge] > 9 ? '9+' : badges[item.badge]}
+                </span>
+              )}
             </Link>
           );
         })}
       </nav>
 
-      {/* User info */}
+      {/* Logout button */}
       <div style={{ padding: '16px 24px', borderTop: '1px solid #e5e7eb' }}>
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            backgroundColor: '#dc2626',
-            borderRadius: '50%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginRight: '12px'
-          }}>
-            <User size={16} style={{ color: 'white' }} />
-          </div>
-          <div>
-            <p style={{ fontSize: '14px', fontWeight: '500', color: '#111827', margin: 0 }}>
-              {user?.nomComplet}
-            </p>
-            <p style={{ fontSize: '12px', color: '#6b7280', margin: 0 }}>Administrateur</p>
-          </div>
-        </div>
         <button
           onClick={handleLogout}
           style={{
             display: 'flex',
             alignItems: 'center',
+            justifyContent: 'center',
             width: '100%',
-            padding: '8px 12px',
+            padding: '10px',
             backgroundColor: 'transparent',
             border: '1px solid #e5e7eb',
             borderRadius: '6px',
             color: '#6b7280',
             fontSize: '14px',
+            fontWeight: '500',
             cursor: 'pointer',
             transition: 'all 0.2s'
           }}
@@ -260,27 +302,28 @@ export default function AdminLayout() {
             </button>
           )}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginLeft: isDesktop ? 0 : 'auto' }}>
-            <button style={{
-              position: 'relative',
-              padding: '8px',
-              backgroundColor: 'transparent',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              color: '#6b7280'
-            }}>
-              <Bell size={20} />
-              <span style={{
-                position: 'absolute',
-                top: '4px',
-                right: '4px',
-                width: '8px',
-                height: '8px',
-                backgroundColor: '#ef4444',
-                borderRadius: '50%'
-              }}></span>
-            </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginLeft: 'auto' }}>
+            <NotificationDropdown />
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+              <div style={{
+                width: '32px',
+                height: '32px',
+                backgroundColor: '#dc2626',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <User size={16} style={{ color: 'white' }} />
+              </div>
+              <div>
+                <p style={{ fontSize: '14px', fontWeight: '600', color: '#111827', margin: 0 }}>
+                  {user?.nomComplet}
+                </p>
+                <p style={{ fontSize: '11px', color: '#6b7280', margin: 0 }}>Administrateur</p>
+              </div>
+            </div>
           </div>
         </header>
 

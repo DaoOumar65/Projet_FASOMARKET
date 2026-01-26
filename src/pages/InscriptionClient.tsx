@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, User, Mail, Lock, Phone, MapPin, ArrowRight, CheckCircle } from 'lucide-react';
+import { Eye, EyeOff, User, Lock, Phone, MapPin, ArrowRight, CheckCircle } from 'lucide-react';
 import { authService } from '../services/api';
 import toast from 'react-hot-toast';
 
 const InscriptionClient: React.FC = () => {
   const [formData, setFormData] = useState({
     nomComplet: '',
-    email: '',
     telephone: '',
     adresse: '',
     motDePasse: '',
@@ -38,7 +37,6 @@ const InscriptionClient: React.FC = () => {
       await authService.registerClient({
         nomComplet: formData.nomComplet,
         telephone: formData.telephone,
-        email: formData.email,
         motDePasse: formData.motDePasse,
         role: 'CLIENT'
       });
@@ -73,12 +71,8 @@ const InscriptionClient: React.FC = () => {
 
   const nextStep = () => {
     if (step === 1) {
-      if (!formData.nomComplet || !formData.email || !formData.telephone) {
+      if (!formData.nomComplet || !formData.telephone) {
         toast.error('Veuillez remplir tous les champs obligatoires');
-        return;
-      }
-      if (!/\S+@\S+\.\S+/.test(formData.email)) {
-        toast.error('Veuillez entrer une adresse email valide');
         return;
       }
     }
@@ -215,58 +209,12 @@ const InscriptionClient: React.FC = () => {
                         transition: 'all 0.3s ease'
                       }}
                       onFocus={(e) => {
-                        e.target.style.borderColor = '#2563eb';
-                        e.target.style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.1)';
+                        (e.target as HTMLInputElement).style.borderColor = '#2563eb';
+                        (e.target as HTMLInputElement).style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.1)';
                       }}
                       onBlur={(e) => {
-                        e.target.style.borderColor = '#e5e7eb';
-                        e.target.style.boxShadow = 'none';
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Email */}
-                <div>
-                  <label style={{
-                    display: 'block',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    color: '#374151',
-                    marginBottom: '8px'
-                  }}>
-                    Adresse email *
-                  </label>
-                  <div style={{ position: 'relative' }}>
-                    <Mail size={20} color="#9ca3af" style={{
-                      position: 'absolute',
-                      left: '16px',
-                      top: '50%',
-                      transform: 'translateY(-50%)'
-                    }} />
-                    <input
-                      type="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleChange}
-                      placeholder="votre@email.com"
-                      required
-                      style={{
-                        width: '100%',
-                        padding: '16px 16px 16px 48px',
-                        border: '2px solid #e5e7eb',
-                        borderRadius: '12px',
-                        fontSize: '16px',
-                        outline: 'none',
-                        transition: 'all 0.3s ease'
-                      }}
-                      onFocus={(e) => {
-                        e.target.style.borderColor = '#2563eb';
-                        e.target.style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.1)';
-                      }}
-                      onBlur={(e) => {
-                        e.target.style.borderColor = '#e5e7eb';
-                        e.target.style.boxShadow = 'none';
+                        (e.target as HTMLInputElement).style.borderColor = '#e5e7eb';
+                        (e.target as HTMLInputElement).style.boxShadow = 'none';
                       }}
                     />
                   </div>
@@ -307,12 +255,12 @@ const InscriptionClient: React.FC = () => {
                         transition: 'all 0.3s ease'
                       }}
                       onFocus={(e) => {
-                        e.target.style.borderColor = '#2563eb';
-                        e.target.style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.1)';
+                        (e.target as HTMLInputElement).style.borderColor = '#2563eb';
+                        (e.target as HTMLInputElement).style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.1)';
                       }}
                       onBlur={(e) => {
-                        e.target.style.borderColor = '#e5e7eb';
-                        e.target.style.boxShadow = 'none';
+                        (e.target as HTMLInputElement).style.borderColor = '#e5e7eb';
+                        (e.target as HTMLInputElement).style.boxShadow = 'none';
                       }}
                     />
                   </div>
@@ -351,12 +299,12 @@ const InscriptionClient: React.FC = () => {
                         transition: 'all 0.3s ease'
                       }}
                       onFocus={(e) => {
-                        e.target.style.borderColor = '#2563eb';
-                        e.target.style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.1)';
+                        (e.target as HTMLInputElement).style.borderColor = '#2563eb';
+                        (e.target as HTMLInputElement).style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.1)';
                       }}
                       onBlur={(e) => {
-                        e.target.style.borderColor = '#e5e7eb';
-                        e.target.style.boxShadow = 'none';
+                        (e.target as HTMLInputElement).style.borderColor = '#e5e7eb';
+                        (e.target as HTMLInputElement).style.boxShadow = 'none';
                       }}
                     />
                   </div>
@@ -382,14 +330,14 @@ const InscriptionClient: React.FC = () => {
                     gap: '8px'
                   }}
                   onMouseEnter={(e) => {
-                    e.target.style.backgroundColor = '#1d4ed8';
-                    e.target.style.transform = 'translateY(-2px)';
-                    e.target.style.boxShadow = '0 8px 25px rgba(37, 99, 235, 0.4)';
+                    (e.target as HTMLButtonElement).style.backgroundColor = '#1d4ed8';
+                    (e.target as HTMLButtonElement).style.transform = 'translateY(-2px)';
+                    (e.target as HTMLButtonElement).style.boxShadow = '0 8px 25px rgba(37, 99, 235, 0.4)';
                   }}
                   onMouseLeave={(e) => {
-                    e.target.style.backgroundColor = '#2563eb';
-                    e.target.style.transform = 'translateY(0)';
-                    e.target.style.boxShadow = 'none';
+                    (e.target as HTMLButtonElement).style.backgroundColor = '#2563eb';
+                    (e.target as HTMLButtonElement).style.transform = 'translateY(0)';
+                    (e.target as HTMLButtonElement).style.boxShadow = 'none';
                   }}
                 >
                   Continuer
@@ -439,12 +387,12 @@ const InscriptionClient: React.FC = () => {
                         transition: 'all 0.3s ease'
                       }}
                       onFocus={(e) => {
-                        e.target.style.borderColor = '#2563eb';
-                        e.target.style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.1)';
+                        (e.target as HTMLInputElement).style.borderColor = '#2563eb';
+                        (e.target as HTMLInputElement).style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.1)';
                       }}
                       onBlur={(e) => {
-                        e.target.style.borderColor = '#e5e7eb';
-                        e.target.style.boxShadow = 'none';
+                        (e.target as HTMLInputElement).style.borderColor = '#e5e7eb';
+                        (e.target as HTMLInputElement).style.boxShadow = 'none';
                       }}
                     />
                     <button
@@ -503,12 +451,12 @@ const InscriptionClient: React.FC = () => {
                         transition: 'all 0.3s ease'
                       }}
                       onFocus={(e) => {
-                        e.target.style.borderColor = '#2563eb';
-                        e.target.style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.1)';
+                        (e.target as HTMLInputElement).style.borderColor = '#2563eb';
+                        (e.target as HTMLInputElement).style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.1)';
                       }}
                       onBlur={(e) => {
-                        e.target.style.borderColor = '#e5e7eb';
-                        e.target.style.boxShadow = 'none';
+                        (e.target as HTMLInputElement).style.borderColor = '#e5e7eb';
+                        (e.target as HTMLInputElement).style.boxShadow = 'none';
                       }}
                     />
                     <button
@@ -545,8 +493,8 @@ const InscriptionClient: React.FC = () => {
                       cursor: 'pointer',
                       transition: 'all 0.2s ease'
                     }}
-                    onMouseEnter={(e) => e.target.style.backgroundColor = '#e5e7eb'}
-                    onMouseLeave={(e) => e.target.style.backgroundColor = '#f3f4f6'}
+                    onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#e5e7eb'}
+                    onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#f3f4f6'}
                   >
                     Retour
                   </button>
@@ -572,16 +520,16 @@ const InscriptionClient: React.FC = () => {
                     }}
                     onMouseEnter={(e) => {
                       if (!loading) {
-                        e.target.style.backgroundColor = '#1d4ed8';
-                        e.target.style.transform = 'translateY(-2px)';
-                        e.target.style.boxShadow = '0 8px 25px rgba(37, 99, 235, 0.4)';
+                        (e.target as HTMLButtonElement).style.backgroundColor = '#1d4ed8';
+                        (e.target as HTMLButtonElement).style.transform = 'translateY(-2px)';
+                        (e.target as HTMLButtonElement).style.boxShadow = '0 8px 25px rgba(37, 99, 235, 0.4)';
                       }
                     }}
                     onMouseLeave={(e) => {
                       if (!loading) {
-                        e.target.style.backgroundColor = '#2563eb';
-                        e.target.style.transform = 'translateY(0)';
-                        e.target.style.boxShadow = 'none';
+                        (e.target as HTMLButtonElement).style.backgroundColor = '#2563eb';
+                        (e.target as HTMLButtonElement).style.transform = 'translateY(0)';
+                        (e.target as HTMLButtonElement).style.boxShadow = 'none';
                       }
                     }}
                   >
@@ -634,7 +582,7 @@ const InscriptionClient: React.FC = () => {
           border: '1px solid #e5e7eb'
         }}>
           <p style={{ color: '#6b7280', fontSize: '14px', marginBottom: '8px' }}>
-            Vous voulez vendre sur FasoMarket ?
+            Vous êtes commerçant ?
           </p>
           <Link
             to="/inscription/vendeur"
@@ -642,25 +590,27 @@ const InscriptionClient: React.FC = () => {
               display: 'inline-flex',
               alignItems: 'center',
               gap: '8px',
-              color: '#16a34a',
+              color: '#2563eb',
               textDecoration: 'none',
               fontWeight: '600',
               fontSize: '14px',
-              padding: '8px 16px',
-              backgroundColor: '#dcfce7',
+              padding: '10px 20px',
+              backgroundColor: '#f1f5f9',
               borderRadius: '8px',
               transition: 'all 0.2s ease'
             }}
             onMouseOver={(e) => {
-              e.target.style.backgroundColor = '#bbf7d0';
-              e.target.style.transform = 'translateY(-1px)';
+              (e.target as HTMLAnchorElement).style.backgroundColor = '#2563eb';
+              (e.target as HTMLAnchorElement).style.color = 'white';
+              (e.target as HTMLAnchorElement).style.transform = 'translateY(-1px)';
             }}
             onMouseOut={(e) => {
-              e.target.style.backgroundColor = '#dcfce7';
-              e.target.style.transform = 'translateY(0)';
+              (e.target as HTMLAnchorElement).style.backgroundColor = '#f1f5f9';
+              (e.target as HTMLAnchorElement).style.color = '#2563eb';
+              (e.target as HTMLAnchorElement).style.transform = 'translateY(0)';
             }}
           >
-            🏪 Devenir vendeur
+            Créer une boutique
           </Link>
         </div>
       </div>

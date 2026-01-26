@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Store, Search, Filter, Eye, Ban, CheckCircle } from 'lucide-react';
+import { Store, Search, Filter, Eye, Ban, CheckCircle, FileText } from 'lucide-react';
 import { adminService } from '../services/api';
 import toast from 'react-hot-toast';
+import DocumentModal from '../components/DocumentModal';
+import { formatDateOnly } from '../utils/dateUtils';
 
 const decodeHTML = (text: string) => {
   const textarea = document.createElement('textarea');
@@ -19,6 +21,8 @@ interface Boutique {
   phone?: string;    // Backend utilise 'phone'
   telephone?: string; // Frontend utilise 'telephone'
   email?: string;
+  numeroCnib?: string;
+  cnib?: string;
   status?: 'ACTIVE' | 'EN_ATTENTE_APPROBATION' | 'SUSPENDUE' | 'REJETEE';
   statut?: 'ACTIVE' | 'PENDING' | 'SUSPENDED';
   vendor?: {
@@ -34,6 +38,7 @@ interface Boutique {
   createdAt?: string;
   dateCreation?: string;
   nombreProduits?: number;
+  fichierIfuUrl?: string;
 }
 
 export default function AdminBoutiques() {
@@ -44,6 +49,12 @@ export default function AdminBoutiques() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState<string | null>(null);
+  const [documentModal, setDocumentModal] = useState<{
+    isOpen: boolean;
+    documentUrl: string;
+    boutiqueId: string;
+    boutiqueName: string;
+  }>({ isOpen: false, documentUrl: '', boutiqueId: '', boutiqueName: '' });
 
   useEffect(() => {
     fetchBoutiques();
@@ -59,10 +70,17 @@ export default function AdminBoutiques() {
         (response.data || []).map(async (boutique: Boutique) => {
           try {
             const details = await adminService.getBoutiqueDetails(boutique.id);
-            return { ...boutique, ...details.data };
+            return { 
+              ...boutique, 
+              ...details.data,
+              numeroCnib: details.data.numeroCnib || details.data.cnib || boutique.numeroCnib || boutique.cnib
+            };
           } catch (error) {
             console.error(`Erreur détails boutique ${boutique.id}:`, error);
-            return boutique;
+            return {
+              ...boutique,
+              numeroCnib: boutique.numeroCnib || boutique.cnib
+            };
           }
         })
       );
@@ -96,7 +114,20 @@ export default function AdminBoutiques() {
       fetchBoutiques();
     } catch (error: any) {
       console.error('Erreur changement statut:', error);
-      const message = error.response?.data || error.message || 'Erreur lors de la modification';
+      console.error('Réponse détaillée:', error.response);
+      
+      let message = 'Erreur lors de la modification';
+      if (error.response?.data) {
+        if (typeof error.response.data === 'string') {
+          message = error.response.data;
+        } else if (error.response.data.message) {
+          message = error.response.data.message;
+        } else if (error.response.data.errors) {
+          const errorMessages = Object.values(error.response.data.errors).flat();
+          message = errorMessages.join(', ');
+        }
+      }
+      
       toast.error(`Erreur: ${message}`);
     } finally {
       setActionLoading(null);
@@ -111,6 +142,23 @@ export default function AdminBoutiques() {
       return;
     }
     changerStatutBoutique(boutiqueId, 'REJECTED', rejectReason);
+  };
+
+  const handleOpenDocumentModal = (boutique: Boutique) => {
+    if (!boutique.fichierIfuUrl) {
+      toast.error('Aucun document IFU disponible');
+      return;
+    }
+    setDocumentModal({
+      isOpen: true,
+      documentUrl: boutique.fichierIfuUrl,
+      boutiqueId: boutique.id,
+      boutiqueName: boutique.nom || boutique.name || 'Boutique'
+    });
+  };
+
+  const handleCloseDocumentModal = () => {
+    setDocumentModal({ isOpen: false, documentUrl: '', boutiqueId: '', boutiqueName: '' });
   };
 
   const filteredBoutiques = boutiques.filter(boutique => {
@@ -258,9 +306,13 @@ export default function AdminBoutiques() {
                       <span style={{ fontSize: '14px', color: '#6b7280' }}>{boutique.vendeur?.telephone || boutique.vendor?.user?.phone || boutique.phone || 'N/A'}</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '14px' }}>🏛️</span>
+                      <span style={{ fontSize: '14px', color: '#16a34a', fontWeight: '500' }}>CNIB: {boutique.numeroCnib || boutique.cnib || 'Non fourni'}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{ fontSize: '14px' }}>📅</span>
                       <span style={{ fontSize: '14px', color: '#6b7280' }}>
-                        {(boutique.dateCreation || boutique.createdAt) ? new Date(boutique.dateCreation || boutique.createdAt!).toLocaleDateString() : 'N/A'}
+                        {formatDateOnly(boutique.dateCreation || boutique.createdAt)}
                       </span>
                     </div>
                     {boutique.nombreProduits !== undefined && (
@@ -273,6 +325,36 @@ export default function AdminBoutiques() {
                 </div>
 
                 <div style={{ display: 'flex', gap: '8px', marginLeft: '24px' }}>
+                  {boutique.fichierIfuUrl && (
+                    <button
+                      onClick={() => handleOpenDocumentModal(boutique)}
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: '#f1f5f9',
+                        color: '#2563eb',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '6px',
+                        fontSize: '14px',
+                        fontWeight: '500',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        transition: 'all 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#2563eb';
+                        e.currentTarget.style.color = 'white';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = '#f1f5f9';
+                        e.currentTarget.style.color = '#2563eb';
+                      }}
+                    >
+                      <FileText size={16} />
+                      Voir IFU
+                    </button>
+                  )}
                   {(boutique.statut === 'ACTIVE' || boutique.status === 'ACTIVE') && (
                     <button
                       onClick={() => changerStatutBoutique(boutique.id, 'SUSPENDED')}
@@ -447,6 +529,15 @@ export default function AdminBoutiques() {
           </div>
         </div>
       )}
+      
+      {/* Modal de visualisation des documents */}
+      <DocumentModal
+        isOpen={documentModal.isOpen}
+        onClose={handleCloseDocumentModal}
+        documentUrl={documentModal.documentUrl}
+        vendeurId={documentModal.boutiqueId}
+        vendeurNom={documentModal.boutiqueName}
+      />
     </div>
   );
 }

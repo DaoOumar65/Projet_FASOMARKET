@@ -1,0 +1,34 @@
+export const ORDER_STATUS = {
+  PENDING: 'PENDING',
+  CONFIRMED: 'CONFIRMED', 
+  SHIPPED: 'SHIPPED',
+  DELIVERED: 'DELIVERED',
+  CANCELLED: 'CANCELLED'
+} as const;
+
+export type OrderStatus = typeof ORDER_STATUS[keyof typeof ORDER_STATUS];
+
+export const STATUS_LABELS: Record<string, string> = {
+  [ORDER_STATUS.PENDING]: 'En attente',
+  [ORDER_STATUS.CONFIRMED]: 'Confirmée',
+  [ORDER_STATUS.SHIPPED]: 'Expédiée', 
+  [ORDER_STATUS.DELIVERED]: 'Livrée',
+  [ORDER_STATUS.CANCELLED]: 'Annulée'
+};
+
+export const STATUS_COLORS: Record<string, string> = {
+  [ORDER_STATUS.PENDING]: '#fef3c7',
+  [ORDER_STATUS.CONFIRMED]: '#dbeafe',
+  [ORDER_STATUS.SHIPPED]: '#e9d5ff',
+  [ORDER_STATUS.DELIVERED]: '#d1fae5',
+  [ORDER_STATUS.CANCELLED]: '#fee2e2'
+};
+
+export const STATUS_FILTERS = [
+  'TOUS',
+  ORDER_STATUS.PENDING,
+  ORDER_STATUS.CONFIRMED, 
+  ORDER_STATUS.SHIPPED,
+  ORDER_STATUS.DELIVERED,
+  ORDER_STATUS.CANCELLED
+];

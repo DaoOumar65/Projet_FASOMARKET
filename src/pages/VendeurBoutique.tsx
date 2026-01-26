@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Store, Edit2, Save, MapPin, Phone, Mail, Clock } from 'lucide-react';
 import { vendorService } from '../services/api';
 import AdresseMapSimple from '../components/AdresseMapSimple';
+import BoutiqueAvatar from '../components/BoutiqueAvatar';
 import toast from 'react-hot-toast';
 
 interface Boutique {
@@ -26,7 +27,8 @@ export default function VendeurBoutique() {
     description: '',
     adresse: '',
     telephone: '',
-    email: ''
+    email: '',
+    image: null as File | null
   });
   const [saveLoading, setSaveLoading] = useState(false);
 
@@ -51,7 +53,8 @@ export default function VendeurBoutique() {
           description: boutique.description,
           adresse: boutique.adresse,
           telephone: boutique.telephone,
-          email: boutique.email
+          email: boutique.email,
+          image: null
         });
       }
     } catch (error: any) {
@@ -73,7 +76,29 @@ export default function VendeurBoutique() {
     
     setSaveLoading(true);
     try {
-      await vendorService.updateBoutique(boutique.id, formData);
+      // Mettre à jour les infos de base
+      await vendorService.updateBoutique(boutique.id, {
+        nom: formData.nom,
+        description: formData.description,
+        adresse: formData.adresse,
+        telephone: formData.telephone,
+        email: formData.email
+      });
+      
+      // Upload de l'image si sélectionnée
+      if (formData.image) {
+        const imageFormData = new FormData();
+        imageFormData.append('logo', formData.image);
+        
+        await fetch(`http://localhost:8081/api/boutiques/${boutique.id}/logo`, {
+          method: 'POST',
+          headers: {
+            'X-User-Id': localStorage.getItem('userId') || ''
+          },
+          body: imageFormData
+        });
+      }
+      
       toast.success('Boutique mise à jour');
       setEditing(false);
       fetchBoutique();
@@ -159,9 +184,7 @@ export default function VendeurBoutique() {
         <div style={{ padding: '24px', borderBottom: '1px solid #e5e7eb' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <div style={{ width: '64px', height: '64px', backgroundColor: '#f3f4f6', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Store size={32} style={{ color: '#6b7280' }} />
-              </div>
+              <BoutiqueAvatar image={boutique.logoUrl} nom={boutique.nom} size={64} />
               <div>
                 <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', marginBottom: '8px' }}>{boutique.nom}</h2>
                 {getStatutBadge(boutique.statut)}
@@ -210,6 +233,34 @@ export default function VendeurBoutique() {
                     }}
                   />
                 </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
+                  Image de la boutique
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setFormData({ ...formData, image: e.target.files?.[0] || null })}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    outline: 'none'
+                  }}
+                />
+                {formData.image && (
+                  <div style={{ marginTop: '8px' }}>
+                    <img 
+                      src={URL.createObjectURL(formData.image)} 
+                      alt="Aperçu"
+                      style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '8px' }}
+                    />
+                  </div>
+                )}
               </div>
 
               <div>

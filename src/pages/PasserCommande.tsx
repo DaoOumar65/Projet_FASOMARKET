@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, MapPin, CreditCard, Phone, CheckCircle } from 'lucide-react';
-import { usePanier } from '../contexts/PanierContext';
+import { usePanier } from '../hooks/usePanier';
 import { useAuthStore } from '../store';
 import { clientService } from '../services/api';
 import AdresseMapSimple from '../components/AdresseMapSimple';

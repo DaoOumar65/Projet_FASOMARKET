@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { AuthResponse, User, Boutique, Produit, Commande, PanierItem, Notification, Categorie, Adresse, Favori } from '../types';
+import type { AuthResponse, User, Boutique, Produit, Commande, PanierItem, Notification, Categorie, Adresse, Favori, CommandeResponse } from '../types';
 
 const API_BASE_URL = 'http://localhost:8081';
 
@@ -58,10 +58,10 @@ export const authService = {
   login: (telephone: string, motDePasse: string) =>
     api.post<AuthResponse>('/api/auth/connexion', { telephone, motDePasse }),
   
-  registerClient: (data: { nomComplet: string; telephone: string; email: string; motDePasse: string; role?: string }) =>
+  registerClient: (data: { nomComplet: string; telephone: string; motDePasse: string; role?: string }) =>
     api.post('/api/auth/inscription-client', data),
   
-  registerVendor: (data: { nomComplet: string; telephone: string; motDePasse: string; carteIdentite: string }) =>
+  registerVendor: (data: { nomComplet: string; telephone: string; email: string; motDePasse: string }) =>
     api.post('/api/auth/inscription-vendeur', data),
   
   changePassword: (ancienMotDePasse: string, nouveauMotDePasse: string) =>
@@ -78,6 +78,7 @@ export const publicService = {
   getBoutique: (id: string) => api.get<Boutique>(`/api/public/boutiques/${id}`),
   getBoutiqueProduits: (id: string) => api.get<Produit[]>(`/api/public/boutiques/${id}/produits`),
   getProduit: (id: string) => api.get<Produit>(`/api/public/produits/${id}`),
+  getProduitVariantes: (id: string) => api.get(`/api/public/produits/${id}/variantes`),
   getProduits: (page = 0, size = 20, filters?: any) => {
     const params = new URLSearchParams();
     params.append('page', page.toString());
@@ -95,16 +96,16 @@ export const clientService = {
   getProfil: () => api.get<User>('/api/client/profil'),
   updateProfil: (data: Partial<User>) => api.put('/api/client/profil', data),
   
-  // Panier
-  ajouterAuPanier: (produitId: string, quantite: number) => 
-    api.post('/api/client/panier/ajouter', { produitId, quantite }),
+  // Panier avec variantes
+  ajouterAuPanier: (produitId: string, quantite: number, varianteId?: string) => 
+    api.post('/api/client/panier/ajouter', { produitId, quantite, varianteId }),
   getPanier: () => api.get<PanierItem[]>('/api/client/panier'),
   supprimerDuPanier: (itemId: string) => api.delete(`/api/client/panier/${itemId}`),
   viderPanier: () => api.delete('/api/client/panier/vider'),
   
   // Commandes
-  creerCommande: (data: { adresseLivraison: string; methodePaiement: string; numeroTelephone: string }) =>
-    api.post('/api/client/commandes/creer', data),
+  creerCommande: (data: { adresseLivraison: string; methodePaiement?: string; numeroTelephone: string; needsDelivery?: boolean }) =>
+    api.post<CommandeResponse>('/api/client/commandes/creer', data),
   getHistoriqueCommandes: () => api.get<Commande[]>('/api/client/historique-commandes'),
   getCommande: (id: string) => api.get<Commande>(`/api/client/commandes/${id}`),
   
@@ -131,22 +132,48 @@ export const clientService = {
 export const vendorService = {
   getDashboard: () => api.get('/api/vendeur/dashboard'),
   getAnalytics: () => api.get('/api/vendeur/analytics'),
+  getGuide: () => api.get('/api/vendeur/guide'),
   
   // Statut compte
   getStatutCompte: () => api.get('/api/vendeur/statut-compte'),
   
   // Boutique
-  creerBoutique: (data: any) => api.post('/api/vendeur/boutiques/creer', data),
+  creerBoutique: (data: any) => {
+    const formData = new FormData();
+    
+    // Ajouter tous les champs sauf le fichier
+    Object.keys(data).forEach(key => {
+      if (key !== 'fichierIfu') {
+        formData.append(key, data[key]);
+        console.log(`FormData: ${key} = ${data[key]}`);
+      }
+    });
+    
+    // Ajouter le fichier séparément
+    if (data.fichierIfu) {
+      formData.append('fichierIfu', data.fichierIfu);
+      console.log('FormData: fichierIfu =', data.fichierIfu.name);
+    }
+    
+    return api.post('/api/vendeur/boutiques/creer', formData);
+  },
+  
+  creerBoutiqueWithPath: (data: any) => api.post('/api/vendeur/boutiques/creer', data),
   getBoutique: () => api.get('/api/vendeur/boutiques'),
   updateBoutique: (id: string, data: any) => api.put(`/api/vendeur/boutiques/${id}`, data),
   soumettreValidation: (boutiqueId: string) => api.post(`/api/vendeur/boutiques/${boutiqueId}/soumettre`),
   getCategoryFormFields: (categoryId: string) => api.get(`/api/vendeur/categories/${categoryId}/form-fields`),
   updateLivraison: (data: any) => api.put('/api/vendeur/boutiques/livraison', data),
   
-  // Produits
+  // Produits avec variantes
   creerProduit: (data: any) => api.post('/api/vendeur/produits/creer', data),
   getProduits: () => api.get('/api/vendeur/produits'),
   getProduit: (id: string) => api.get(`/api/vendeur/produits/${id}`),
+  getProduitVariantes: (id: string) => api.get(`/api/vendeur/produits/${id}/variantes`),
+  genererVariantes: (produitId: string) => api.post(`/api/vendeur/produits/${produitId}/variantes/generer`),
+  creerVariante: (produitId: string, data: any) => api.post(`/api/vendeur/produits/${produitId}/variantes`, data),
+  updateVariante: (produitId: string, varianteId: string, data: any) => api.put(`/api/vendeur/produits/${produitId}/variantes/${varianteId}`, data),
+  supprimerVariante: (produitId: string, varianteId: string) => api.delete(`/api/vendeur/produits/${produitId}/variantes/${varianteId}`),
   updateProduit: (id: string, data: any) => api.put(`/api/vendeur/produits/${id}`, data),
   supprimerProduit: (id: string) => api.delete(`/api/vendeur/produits/${id}`),
   getGestionStock: () => api.get('/api/vendeur/gestion-stock'),
@@ -157,6 +184,8 @@ export const vendorService = {
   getCommandes: () => api.get('/api/vendeur/commandes'),
   updateCommandeStatut: (id: string, statut: string) => 
     api.put(`/api/vendeur/commandes/${id}/statut`, { statut }),
+  decrementerStock: (commandeId: string) =>
+    api.put(`/api/vendeur/commandes/${commandeId}/decrementer-stock`),
     
   // Profil et paramètres
   updateProfil: (data: any) => api.put('/api/vendeur/profil', data),
@@ -181,16 +210,22 @@ export const adminService = {
   getValidationsVendeurs: () => api.get('/api/admin/validations/vendeurs'),
   getValidationsBoutiques: () => api.get('/api/admin/validations/boutiques'),
   validerVendeur: (vendorId: string, statut: string, raison?: string) => {
-    const data = { statut, raison };
-    return api.put(`/api/admin/vendeurs/${vendorId}/valider`, data);
+    const params = new URLSearchParams();
+    params.append('statut', statut);
+    if (raison) params.append('raison', raison);
+    return api.put(`/api/admin/vendeurs/${vendorId}/valider?${params.toString()}`);
   },
+  saveCnibVendeur: (vendorId: string, cnib: string) =>
+    api.put(`/api/admin/vendeurs/${vendorId}/cnib`, { cnib }),
   
   // Boutiques
   getBoutiques: () => api.get('/api/admin/boutiques'),
   getBoutiqueDetails: (boutiqueId: string) => api.get(`/api/admin/boutiques/${boutiqueId}/details`),
   validerBoutique: (boutiqueId: string, statut: string, raison?: string) => {
-    const data = { statut, raison };
-    return api.put(`/api/admin/boutiques/${boutiqueId}/valider`, data);
+    const params = new URLSearchParams();
+    params.append('statut', statut);
+    if (raison) params.append('raison', raison);
+    return api.put(`/api/admin/boutiques/${boutiqueId}/valider?${params.toString()}`);
   },
   updateBoutiqueStatut: (id: string, statut: string) =>
     api.put(`/api/admin/boutiques/${id}/statut`, { statut }),
@@ -221,6 +256,9 @@ export const adminService = {
     api.post('/api/admin/notifications/diffuser', { titre, message }),
   getNotificationsHistorique: () => api.get('/api/admin/notifications/historique'),
   getStatistiquesSysteme: () => api.get('/api/admin/statistiques/revenus'),
+  
+  // Badges de notification
+  getBadges: () => api.get('/api/admin/badges'),
 };
 
 export { api };

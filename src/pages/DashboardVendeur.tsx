@@ -1,119 +1,179 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Store, Package, ShoppingBag, Bell, Plus, TrendingUp } from 'lucide-react';
-import { vendorService } from '../services/api';
-import { useVendeurStore } from '../store/vendeur';
-import type { Boutique, Produit, Commande } from '../types';
+import { Package, ShoppingCart, AlertTriangle } from 'lucide-react';
+import StockAlert from '../components/StockAlert';
+import BoutiqueAvatar from '../components/BoutiqueAvatar';
+import GuideVendeur from '../components/GuideVendeur';
 
-interface DashboardVendeurData {
-  statistiques: {
-    nouvellesCommandes: number;
-    ventesAujourdhui: number;
-    produitsEnStock: number;
-    notificationsNonLues: number;
-  };
-  boutique: Boutique | null;
-  commandesRecentes: Commande[];
-  produitsRecents: Produit[];
+interface Stats {
+  produitsTotal: number;
+  commandesTotal: number;
+  ventesTotal: number;
+  revenusTotal: number;
 }
 
 export default function DashboardVendeur() {
-  const [data, setData] = useState<DashboardVendeurData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const { boutique } = useVendeurStore();
+  const [stats, setStats] = useState<Stats>({ produitsTotal: 0, commandesTotal: 0, ventesTotal: 0, revenusTotal: 0 });
+  const [produits, setProduits] = useState<any[]>([]);
+  const [commandes, setCommandes] = useState<any[]>([]);
+  const [lowStockProducts, setLowStockProducts] = useState<any[]>([]);
+  const [boutique, setBoutique] = useState<any>(null);
 
   useEffect(() => {
-    const fetchDashboard = async () => {
+    const fetchData = async () => {
       try {
-        const response = await vendorService.getDashboard();
-        setData(response.data);
-      } catch (error: any) {
-        console.error('Erreur lors du chargement du dashboard vendeur:', error);
-      } finally {
-        setLoading(false);
+        const userId = localStorage.getItem('userId');
+        const [produitsRes, commandesRes, boutiqueRes] = await Promise.all([
+          fetch('http://localhost:8081/api/vendeur/produits', {
+            headers: { 'X-User-Id': userId || '' }
+          }),
+          fetch('http://localhost:8081/api/vendeur/commandes', {
+            headers: { 'X-User-Id': userId || '' }
+          }),
+          fetch('http://localhost:8081/api/vendeur/boutiques', {
+            headers: { 'X-User-Id': userId || '' }
+          })
+        ]);
+
+        if (boutiqueRes.ok) {
+          const boutiqueData = await boutiqueRes.json();
+          setBoutique(boutiqueData.boutique || boutiqueData);
+        }
+
+        if (produitsRes.ok) {
+          const produitsData = await produitsRes.json();
+          const produitsConverted = produitsData.map((p: any) => {
+            // Gérer les images
+            let images = [];
+            if (p.images) {
+              if (typeof p.images === 'string') {
+                images = p.images.split(',').map((img: string) => img.trim()).filter(Boolean);
+              } else if (Array.isArray(p.images)) {
+                images = p.images.filter(Boolean);
+              }
+            }
+            
+            return {
+              ...p,
+              images,
+              stock: Number(p.quantiteStock || p.stock) || 0
+            };
+          });
+          setProduits(produitsConverted.slice(0, 5));
+          setStats(prev => ({ ...prev, produitsTotal: produitsConverted.length }));
+          setLowStockProducts(produitsConverted.filter(p => p.stock <= 5));
+        }
+
+        if (commandesRes.ok) {
+          const commandesData = await commandesRes.json();
+          setCommandes(commandesData.slice(0, 5));
+          const revenus = commandesData.reduce((sum: number, c: any) => sum + (c.total || 0), 0);
+          setStats(prev => ({
+            ...prev,
+            commandesTotal: commandesData.length,
+            revenusTotal: revenus,
+            ventesTotal: commandesData.filter((c: any) => c.statut === 'LIVREE').length
+          }));
+        }
+      } catch (error) {
+        console.error('Erreur:', error);
       }
     };
-
-    fetchDashboard();
+    fetchData();
   }, []);
-
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}>
-        <div style={{ 
-          width: '48px', 
-          height: '48px', 
-          border: '2px solid #e5e7eb', 
-          borderTop: '2px solid #16a34a', 
-          borderRadius: '50%', 
-          animation: 'spin 1s linear infinite' 
-        }}></div>
-      </div>
-    );
-  }
 
   return (
     <div>
-      {/* Bannière de célébration */}
-      <div style={{
-        backgroundColor: '#dcfce7',
-        border: '1px solid #bbf7d0',
-        borderRadius: '12px',
-        padding: '24px',
-        marginBottom: '32px',
-        textAlign: 'center'
-      }}>
-        <div style={{ fontSize: '32px', marginBottom: '12px' }}>🎉</div>
-        <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#166534', marginBottom: '8px' }}>
-          Votre boutique est active !
-        </h2>
-        <p style={{ color: '#15803d' }}>
-          Vous pouvez maintenant vendre vos produits
-        </p>
-      </div>
+      {/* Guide vendeur si pas de boutique */}
+      {!boutique && (
+        <GuideVendeur statutCompte="VALIDATED" boutique={boutique} />
+      )}
+
+      {/* En-tête avec info boutique */}
+      {boutique && (
+        <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '20px', marginBottom: '32px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <BoutiqueAvatar image={boutique.logoUrl} nom={boutique.nom} size={48} />
+            <div>
+              <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#111827', marginBottom: '4px' }}>{boutique.nom}</h2>
+              <p style={{ fontSize: '14px', color: '#6b7280' }}>{boutique.adresse}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Statistiques */}
-      {data?.statistiques && (
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
-          gap: '24px', 
-          marginBottom: '32px' 
-        }}>
-          <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <div style={{ padding: '8px', backgroundColor: '#dbeafe', borderRadius: '8px' }}>
-                <Package size={24} style={{ color: '#2563eb' }} />
-              </div>
-              <div style={{ marginLeft: '16px' }}>
-                <p style={{ fontSize: '14px', fontWeight: '500', color: '#6b7280', marginBottom: '4px' }}>Nouvelles commandes</p>
-                <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827' }}>{data.statistiques.nouvellesCommandes}</p>
-              </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px', marginBottom: '32px' }}>
+        <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <div style={{ padding: '8px', backgroundColor: '#dbeafe', borderRadius: '8px' }}>
+              <Package size={24} style={{ color: '#2563eb' }} />
+            </div>
+            <div style={{ marginLeft: '16px' }}>
+              <p style={{ fontSize: '14px', fontWeight: '500', color: '#6b7280', marginBottom: '4px' }}>Produits</p>
+              <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827' }}>{stats.produitsTotal}</p>
             </div>
           </div>
+        </div>
 
-          <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <div style={{ padding: '8px', backgroundColor: '#fef3c7', borderRadius: '8px' }}>
-                <span style={{ fontSize: '24px', color: '#d97706' }}>💰</span>
-              </div>
-              <div style={{ marginLeft: '16px' }}>
-                <p style={{ fontSize: '14px', fontWeight: '500', color: '#6b7280', marginBottom: '4px' }}>Ventes aujourd'hui</p>
-                <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827' }}>{data.statistiques.ventesAujourdhui} FCFA</p>
-              </div>
+        <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <div style={{ padding: '8px', backgroundColor: '#dcfce7', borderRadius: '8px' }}>
+              <ShoppingCart size={24} style={{ color: '#16a34a' }} />
+            </div>
+            <div style={{ marginLeft: '16px' }}>
+              <p style={{ fontSize: '14px', fontWeight: '500', color: '#6b7280', marginBottom: '4px' }}>Commandes</p>
+              <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827' }}>{stats.commandesTotal}</p>
             </div>
           </div>
+        </div>
 
-          <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <div style={{ padding: '8px', backgroundColor: '#e9d5ff', borderRadius: '8px' }}>
-                <span style={{ fontSize: '24px', color: '#9333ea' }}>📊</span>
-              </div>
-              <div style={{ marginLeft: '16px' }}>
-                <p style={{ fontSize: '14px', fontWeight: '500', color: '#6b7280', marginBottom: '4px' }}>Produits en stock</p>
-                <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827' }}>{data.statistiques.produitsEnStock}</p>
-              </div>
+        <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <div style={{ padding: '8px', backgroundColor: '#fef3c7', borderRadius: '8px' }}>
+              <span style={{ fontSize: '24px' }}>📊</span>
             </div>
+            <div style={{ marginLeft: '16px' }}>
+              <p style={{ fontSize: '14px', fontWeight: '500', color: '#6b7280', marginBottom: '4px' }}>Ventes</p>
+              <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827' }}>{stats.ventesTotal}</p>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <div style={{ padding: '8px', backgroundColor: '#e9d5ff', borderRadius: '8px' }}>
+              <span style={{ fontSize: '24px' }}>💰</span>
+            </div>
+            <div style={{ marginLeft: '16px' }}>
+              <p style={{ fontSize: '14px', fontWeight: '500', color: '#6b7280', marginBottom: '4px' }}>Revenus</p>
+              <p style={{ fontSize: '20px', fontWeight: 'bold', color: '#111827' }}>{stats.revenusTotal.toLocaleString()} FCFA</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Alertes Stock */}
+      {lowStockProducts.length > 0 && (
+        <div style={{ marginBottom: '32px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+            <AlertTriangle size={24} style={{ color: '#d97706' }} />
+            <h3 style={{ fontSize: '20px', fontWeight: '600', color: '#111827' }}>
+              Alertes Stock ({lowStockProducts.length})
+            </h3>
+          </div>
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '16px', border: '1px solid #e5e7eb' }}>
+            {lowStockProducts.map(product => (
+              <StockAlert 
+                key={product.id} 
+                product={{
+                  id: product.id,
+                  nom: product.nom,
+                  quantiteStock: product.stock
+                }} 
+                onRestock={() => window.location.reload()}
+              />
+            ))}
           </div>
         </div>
       )}
@@ -122,95 +182,84 @@ export default function DashboardVendeur() {
       <div style={{ marginBottom: '32px' }}>
         <h3 style={{ fontSize: '20px', fontWeight: '600', color: '#111827', marginBottom: '16px' }}>🔥 Actions rapides</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-          <button
-            onClick={() => window.location.href = '/vendeur/ajouter-produit'}
-            style={{
-              padding: '16px',
-              backgroundColor: 'white',
-              border: '1px solid #e5e7eb',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              textAlign: 'left',
-              transition: 'all 0.2s'
-            }}
-            onMouseEnter={(e) => (e.target as HTMLElement).style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)'}
-            onMouseLeave={(e) => (e.target as HTMLElement).style.boxShadow = 'none'}
-          >
+          <Link to="/vendeur/ajouter-produit" style={{ padding: '16px', backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', textDecoration: 'none', color: 'inherit' }}>
             ➕ Ajouter produit
-          </button>
-          
-          <button
-            onClick={() => window.location.href = '/vendeur/commandes'}
-            style={{
-              padding: '16px',
-              backgroundColor: 'white',
-              border: '1px solid #e5e7eb',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              textAlign: 'left',
-              transition: 'all 0.2s'
-            }}
-            onMouseEnter={(e) => (e.target as HTMLElement).style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)'}
-            onMouseLeave={(e) => (e.target as HTMLElement).style.boxShadow = 'none'}
-          >
+          </Link>
+          <Link to="/vendeur/commandes" style={{ padding: '16px', backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', textDecoration: 'none', color: 'inherit' }}>
             📋 Voir commandes
-          </button>
-          
-          <button
-            onClick={() => window.location.href = '/vendeur/analytics'}
-            style={{
-              padding: '16px',
-              backgroundColor: 'white',
-              border: '1px solid #e5e7eb',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              textAlign: 'left',
-              transition: 'all 0.2s'
-            }}
-            onMouseEnter={(e) => (e.target as HTMLElement).style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)'}
-            onMouseLeave={(e) => (e.target as HTMLElement).style.boxShadow = 'none'}
-          >
+          </Link>
+          <Link to="/vendeur/analytics" style={{ padding: '16px', backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', textDecoration: 'none', color: 'inherit' }}>
             📊 Statistiques
-          </button>
+          </Link>
+          <Link to="/vendeur/produits" style={{ padding: '16px', backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', textDecoration: 'none', color: 'inherit' }}>
+            📦 Mes produits
+          </Link>
         </div>
       </div>
 
-      {/* Commandes récentes */}
-      {data?.commandesRecentes && data.commandesRecentes.length > 0 && (
+      {/* Produits et Commandes */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '24px' }}>
+        {/* Produits récents */}
         <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
           <div style={{ padding: '24px', borderBottom: '1px solid #e5e7eb' }}>
-            <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827' }}>📦 Commandes récentes</h3>
+            <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827' }}>📦 Produits récents</h3>
           </div>
           <div style={{ padding: '24px' }}>
-            {data.commandesRecentes.map(commande => (
-              <div key={commande.id} style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '16px',
-                border: '1px solid #e5e7eb',
-                borderRadius: '8px',
-                marginBottom: '12px'
-              }}>
-                <div>
-                  <span style={{ fontWeight: '500' }}>#{commande.id.slice(0, 8)}</span>
-                  <span style={{ marginLeft: '16px', color: '#6b7280' }}>{commande.total} FCFA</span>
+            {produits.length > 0 ? (
+              produits.map((prod) => (
+                <div key={prod.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', border: '1px solid #e5e7eb', borderRadius: '8px', marginBottom: '12px' }}>
+                  <img src={(prod.images && prod.images[0]) || '/placeholder.png'} alt={prod.nom} style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '8px' }} />
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontWeight: '500' }}>{prod.nom}</p>
+                    <p style={{ fontSize: '14px', color: '#6b7280' }}>Stock: {prod.stock}</p>
+                  </div>
+                  <p style={{ fontWeight: 'bold' }}>{(prod.prix || 0).toLocaleString()} FCFA</p>
                 </div>
-                <span style={{
-                  padding: '4px 8px',
-                  borderRadius: '4px',
-                  fontSize: '12px',
-                  fontWeight: '500',
-                  backgroundColor: commande.statut === 'DELIVERED' ? '#dcfce7' : '#fef3c7',
-                  color: commande.statut === 'DELIVERED' ? '#166534' : '#92400e'
-                }}>
-                  {commande.statut}
-                </span>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p style={{ textAlign: 'center', color: '#6b7280', padding: '32px' }}>Aucun produit</p>
+            )}
           </div>
         </div>
-      )}
+
+        {/* Commandes récentes */}
+        <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
+          <div style={{ padding: '24px', borderBottom: '1px solid #e5e7eb' }}>
+            <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827' }}>📋 Commandes récentes</h3>
+          </div>
+          <div style={{ padding: '24px' }}>
+            {commandes.length > 0 ? (
+              commandes.map((cmd) => (
+                <div key={cmd.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', border: '1px solid #e5e7eb', borderRadius: '8px', marginBottom: '12px' }}>
+                  <div>
+                    <span style={{ fontWeight: '500' }}>{cmd.numero || 'N/A'}</span>
+                    <span style={{ marginLeft: '16px', color: '#6b7280' }}>
+                      {(() => {
+                        const total = cmd.total || cmd.montant || cmd.montantTotal || cmd.totalAmount || 0;
+                        if (total > 0) {
+                          return total.toLocaleString();
+                        }
+                        // Calculer le total à partir des items si disponible
+                        const calculatedTotal = cmd.items?.reduce((sum: number, item: any) => {
+                          const prix = item.produit?.prix || item.prix || 0;
+                          const quantite = item.quantite || item.quantity || 1;
+                          return sum + (prix * quantite);
+                        }, 0) || 0;
+                        return calculatedTotal.toLocaleString();
+                      })()} FCFA
+                    </span>
+                  </div>
+                  <span style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: '500', backgroundColor: '#fef3c7', color: '#92400e' }}>
+                    {cmd.statut || 'N/A'}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <p style={{ textAlign: 'center', color: '#6b7280', padding: '32px' }}>Aucune commande</p>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

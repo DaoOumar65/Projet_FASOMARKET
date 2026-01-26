@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Store, Search, MapPin, Truck, Plus, AlertCircle } from 'lucide-react';
 import { publicService } from '../services/api';
 import AdresseMapSimple from '../components/AdresseMapSimple';
+import BoutiqueAvatar from '../components/BoutiqueAvatar';
 import type { Boutique } from '../types';
 
 const decodeHTML = (text: string) => {
@@ -283,42 +284,42 @@ export default function Boutiques() {
                 {/* Image de couverture */}
                 <div style={{
                   height: '160px',
-                  background: boutique.bannerUrl 
-                    ? `url(${boutique.bannerUrl}) center/cover` 
-                    : 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)',
+                  background: (() => {
+                    const bannerImage = boutique.bannerUrl || boutique.logoUrl || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&h=160&fit=crop';
+                    return `url(${bannerImage}) center/cover`;
+                  })(),
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   position: 'relative'
                 }}>
-                  {!boutique.bannerUrl && (
+                  {!boutique.bannerUrl && !boutique.logoUrl && (
                     <Store size={48} style={{ color: 'white', opacity: 0.8 }} />
                   )}
                   
                   {/* Logo de la boutique */}
-                  {boutique.logoUrl && (
+                  <div style={{
+                    position: 'absolute',
+                    bottom: '-20px',
+                    left: '20px'
+                  }}>
+                    <BoutiqueAvatar 
+                      image={boutique.logoUrl || boutique.image} 
+                      nom={boutique.nom} 
+                      size={60} 
+                    />
                     <div style={{
                       position: 'absolute',
-                      bottom: '-20px',
-                      left: '20px',
-                      width: '60px',
-                      height: '60px',
-                      borderRadius: '12px',
-                      overflow: 'hidden',
+                      top: '-3px',
+                      left: '-3px',
+                      right: '-3px',
+                      bottom: '-3px',
                       border: '3px solid white',
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-                    }}>
-                      <img 
-                        src={boutique.logoUrl} 
-                        alt={`Logo ${boutique.nom}`}
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'cover'
-                        }}
-                      />
-                    </div>
-                  )}
+                      borderRadius: '15px',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                      pointerEvents: 'none'
+                    }} />
+                  </div>
                   <div style={{
                     position: 'absolute',
                     top: '12px',
@@ -338,7 +339,7 @@ export default function Boutiques() {
                 </div>
 
                 {/* Informations */}
-                <div style={{ padding: boutique.logoUrl ? '30px 20px 20px' : '20px' }}>
+                <div style={{ padding: '30px 20px 20px' }}>
                   <h3 style={{
                     fontSize: '20px',
                     fontWeight: '600',
@@ -444,7 +445,10 @@ export default function Boutiques() {
                           fontWeight: '500',
                           backgroundColor: '#f0fdf4',
                           color: '#166534',
-                          border: '1px solid #bbf7d0'
+                          border: '1px solid #bbf7d0',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
                         }}>
                           📞 Contactable
                         </span>

@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { ShoppingBag, Search, Filter, TrendingUp, Package, Clock, CheckCircle } from 'lucide-react';
 import { adminService } from '../services/api';
+import { STATUS_LABELS, ORDER_STATUS } from '../constants/orderStatus';
 import toast from 'react-hot-toast';
+import { formatDateOnly } from '../utils/dateUtils';
 
 interface Commande {
   id: string;
@@ -48,56 +50,78 @@ export default function AdminCommandes() {
   const fetchCommandes = async () => {
     try {
       const response = await adminService.getCommandes();
+      console.log('Admin orders response:', response.data);
       const data = Array.isArray(response.data) ? response.data : [];
-      setCommandes(data);
       
-      // Calculer les statistiques localement
+      if (data.length > 0) {
+        console.log('First order structure:', JSON.stringify(data[0], null, 2));
+        console.log('All order keys:', Object.keys(data[0]));
+      }
+      
+      // Map data with proper field names
+      const mappedData = data.map((cmd: any) => {
+        console.log('Raw order data:', {
+          id: cmd.id,
+          total: cmd.total,
+          montant: cmd.montant,
+          montantTotal: cmd.montantTotal,
+          client: cmd.client,
+          clientNom: cmd.clientNom,
+          boutique: cmd.boutique,
+          vendeur: cmd.vendeur
+        });
+        
+        const mapped = {
+          id: cmd.id,
+          numero: cmd.numero || cmd.numeroCommande || `CMD-${cmd.id?.slice(-6)}`,
+          total: parseFloat(cmd.total || cmd.montant || cmd.montantTotal || 0),
+          statut: cmd.statut || cmd.status || ORDER_STATUS.PENDING,
+          client: {
+            nomComplet: cmd.client?.nomComplet || cmd.client?.fullName || cmd.clientNom || cmd.nomClient || 'Client inconnu',
+            telephone: cmd.client?.telephone || cmd.client?.phone || cmd.clientTelephone || cmd.telephoneClient || 'N/A'
+          },
+          vendeur: {
+            nomComplet: cmd.vendeur?.nomComplet || cmd.vendeur?.fullName || cmd.vendeurNom || cmd.nomVendeur || 'Vendeur inconnu',
+            boutique: cmd.boutique?.nom || cmd.boutique?.name || cmd.vendeur?.boutique?.nom || cmd.boutiqueName || cmd.nomBoutique || 'Boutique inconnue'
+          },
+          dateCommande: cmd.dateCreation || cmd.dateCommande || cmd.createdAt,
+          adresseLivraison: cmd.adresseLivraison || cmd.adresse || cmd.deliveryAddress || 'Adresse inconnue'
+        };
+        
+        console.log('Mapped order:', mapped);
+        return mapped;
+      });
+      
+      setCommandes(mappedData);
+      
+      // Calculer les statistiques
       const stats = {
-        totalCommandes: data.length,
-        commandesAujourdhui: data.filter(c => 
-          new Date(c.dateCommande).toDateString() === new Date().toDateString()
+        totalCommandes: mappedData.length,
+        commandesAujourdhui: mappedData.filter(c => 
+          c.dateCommande && new Date(c.dateCommande).toDateString() === new Date().toDateString()
         ).length,
-        chiffreAffairesTotal: data.reduce((sum, c) => sum + c.total, 0),
-        chiffreAffairesMois: data.filter(c => 
-          new Date(c.dateCommande).getMonth() === new Date().getMonth()
-        ).reduce((sum, c) => sum + c.total, 0),
+        chiffreAffairesTotal: mappedData.reduce((sum, c) => sum + (c.total || 0), 0),
+        chiffreAffairesMois: mappedData.filter(c => 
+          c.dateCommande && new Date(c.dateCommande).getMonth() === new Date().getMonth()
+        ).reduce((sum, c) => sum + (c.total || 0), 0),
         commandesParStatut: {
-          PENDING: data.filter(c => c.statut === 'PENDING').length,
-          PROCESSING: data.filter(c => c.statut === 'PROCESSING').length,
-          DELIVERED: data.filter(c => c.statut === 'DELIVERED').length,
-          CANCELLED: data.filter(c => c.statut === 'CANCELLED').length
+          PENDING: mappedData.filter(c => c.statut === ORDER_STATUS.PENDING).length,
+          PROCESSING: mappedData.filter(c => c.statut === ORDER_STATUS.CONFIRMED).length,
+          DELIVERED: mappedData.filter(c => c.statut === ORDER_STATUS.DELIVERED).length,
+          CANCELLED: mappedData.filter(c => c.statut === ORDER_STATUS.CANCELLED).length
         }
       };
       setStatistiques(stats);
     } catch (error) {
       console.error('Erreur lors du chargement des commandes:', error);
-      // Données de test
-      const testCommandes = [
-        {
-          id: '1',
-          numero: 'CMD001',
-          total: 15000,
-          statut: 'PENDING' as const,
-          client: {
-            nomComplet: 'Dao Test',
-            telephone: '+22665300001'
-          },
-          vendeur: {
-            nomComplet: 'Vendeur Test',
-            boutique: 'Boutique Test'
-          },
-          dateCommande: '2026-01-13T13:21:07.654288',
-          adresseLivraison: 'Ouagadougou, Burkina Faso'
-        }
-      ];
-      setCommandes(testCommandes);
+      setCommandes([]);
       setStatistiques({
-        totalCommandes: 1,
-        commandesAujourdhui: 1,
-        chiffreAffairesTotal: 15000,
-        chiffreAffairesMois: 15000,
+        totalCommandes: 0,
+        commandesAujourdhui: 0,
+        chiffreAffairesTotal: 0,
+        chiffreAffairesMois: 0,
         commandesParStatut: {
-          PENDING: 1,
+          PENDING: 0,
           PROCESSING: 0,
           DELIVERED: 0,
           CANCELLED: 0
@@ -122,9 +146,9 @@ export default function AdminCommandes() {
   };
 
   const filteredCommandes = commandes.filter(commande => {
-    const matchesSearch = commande.numero.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         commande.client.nomComplet.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         commande.vendeur.nomComplet.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (commande.numero || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (commande.client?.nomComplet || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (commande.vendeur?.nomComplet || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatut = !statutFilter || commande.statut === statutFilter;
     return matchesSearch && matchesStatut;
   });
@@ -139,10 +163,10 @@ export default function AdminCommandes() {
     const color = colors[statut as keyof typeof colors] || colors.PENDING;
     
     const labels = {
-      PENDING: 'En attente',
-      PROCESSING: 'En cours',
-      DELIVERED: 'Livrée',
-      CANCELLED: 'Annulée'
+      PENDING: STATUS_LABELS.PENDING,
+      PROCESSING: STATUS_LABELS.CONFIRMED,
+      DELIVERED: STATUS_LABELS.DELIVERED,
+      CANCELLED: STATUS_LABELS.CANCELLED
     };
     
     return (
@@ -266,10 +290,10 @@ export default function AdminCommandes() {
               }}
             >
               <option value="">Tous les statuts</option>
-              <option value="PENDING">En attente</option>
-              <option value="PROCESSING">En cours</option>
-              <option value="DELIVERED">Livrées</option>
-              <option value="CANCELLED">Annulées</option>
+              <option value={ORDER_STATUS.PENDING}>{STATUS_LABELS.PENDING}</option>
+              <option value={ORDER_STATUS.CONFIRMED}>{STATUS_LABELS.CONFIRMED}</option>
+              <option value={ORDER_STATUS.DELIVERED}>{STATUS_LABELS.DELIVERED}</option>
+              <option value={ORDER_STATUS.CANCELLED}>{STATUS_LABELS.CANCELLED}</option>
             </select>
           </div>
         </div>
@@ -288,33 +312,33 @@ export default function AdminCommandes() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
-                    <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', marginRight: '12px' }}>#{commande.numero}</h3>
+                    <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', marginRight: '12px' }}>#{commande.numero || 'N/A'}</h3>
                     {getStatutBadge(commande.statut)}
                     <span style={{ fontSize: '18px', fontWeight: 'bold', color: '#2563eb', marginLeft: 'auto' }}>
-                      {commande.total.toLocaleString()} FCFA
+                      {(commande.total || 0).toLocaleString()} FCFA
                     </span>
                   </div>
                   
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{ fontSize: '14px' }}>👤</span>
-                      <span style={{ fontSize: '14px', color: '#6b7280' }}>{commande.client.nomComplet}</span>
+                      <span style={{ fontSize: '14px', color: '#6b7280' }}>{commande.client?.nomComplet || 'N/A'}</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{ fontSize: '14px' }}>📞</span>
-                      <span style={{ fontSize: '14px', color: '#6b7280' }}>{commande.client.telephone}</span>
+                      <span style={{ fontSize: '14px', color: '#6b7280' }}>{commande.client?.telephone || 'N/A'}</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{ fontSize: '14px' }}>🏪</span>
-                      <span style={{ fontSize: '14px', color: '#6b7280' }}>{commande.vendeur.boutique}</span>
+                      <span style={{ fontSize: '14px', color: '#6b7280' }}>{commande.vendeur?.boutique || 'N/A'}</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{ fontSize: '14px' }}>📍</span>
-                      <span style={{ fontSize: '14px', color: '#6b7280' }}>{commande.adresseLivraison}</span>
+                      <span style={{ fontSize: '14px', color: '#6b7280' }}>{commande.adresseLivraison || 'N/A'}</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{ fontSize: '14px' }}>📅</span>
-                      <span style={{ fontSize: '14px', color: '#6b7280' }}>{new Date(commande.dateCommande).toLocaleDateString()}</span>
+                      <span style={{ fontSize: '14px', color: '#6b7280' }}>{formatDateOnly(commande.dateCommande)}</span>
                     </div>
                   </div>
                 </div>

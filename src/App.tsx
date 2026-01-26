@@ -1,6 +1,6 @@
 import { Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { PanierProvider } from './contexts/PanierContext';
+import PanierProvider from './contexts/PanierContext';
 import { useAuthInit } from './hooks/useAuthInit';
 import Header from './components/Header';
 import VendorLayout from './components/VendorLayout';
@@ -42,13 +42,29 @@ import ClientFavoris from './pages/ClientFavoris';
 import ClientAdresses from './pages/ClientAdresses';
 import DetailCommande from './pages/DetailCommande';
 import PasserCommande from './pages/PasserCommande';
+import Commander from './pages/Commander';
+import Favoris from './pages/Favoris';
+import Adresses from './pages/Adresses';
+import ProfilClient from './pages/ProfilClient';
+import ProfilVendeur from './pages/ProfilVendeur';
+import Notifications from './pages/Notifications';
+import GestionStock from './pages/GestionStock';
+import AvisProduit from './pages/AvisProduit';
+import AnalyticsVendeur from './pages/AnalyticsVendeur';
 import Panier from './pages/Panier';
+import Commande from './pages/Commande';
 import Profil from './pages/Profil';
 import Categories from './pages/Categories';
 import Boutiques from './pages/Boutiques';
 import DetailBoutique from './pages/DetailBoutique';
 import Produits from './pages/Produits';
 import TestAdresse from './pages/TestAdresse';
+import PaiementSimule from './pages/PaiementSimule';
+import Paiement from './pages/Paiement';
+import PaiementSucces from './pages/PaiementSucces';
+import PaiementAnnule from './pages/PaiementAnnule';
+import GestionVariantes from './pages/GestionVariantes';
+import GuideVendeurPage from './pages/GuideVendeurPage';
 
 function App() {
   useAuthInit();
@@ -66,6 +82,7 @@ function App() {
           <Route path="/inscription" element={<InscriptionClient />} />
           <Route path="/recherche" element={<><Header /><Recherche /></>} />
           <Route path="/produits/:id" element={<><Header /><DetailProduit /></>} />
+          <Route path="/produit/:id" element={<><Header /><DetailProduit /></>} />
           <Route path="/categories" element={<><Header /><Categories /></>} />
           <Route path="/categories/:id" element={<><Header /><Categories /></>} />
           <Route path="/boutiques" element={<><Header /><Boutiques /></>} />
@@ -96,7 +113,7 @@ function App() {
             element={
               <ProtectedRoute requiredRole="CLIENT">
                 <Header />
-                <PasserCommande />
+                <Commande />
               </ProtectedRoute>
             } 
           />
@@ -110,6 +127,15 @@ function App() {
             } 
           />
           <Route 
+            path="/client/commandes/:id" 
+            element={
+              <ProtectedRoute requiredRole="CLIENT">
+                <Header />
+                <DetailCommande />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
             path="/commande/:id" 
             element={
               <ProtectedRoute requiredRole="CLIENT">
@@ -119,11 +145,20 @@ function App() {
             } 
           />
           <Route 
+            path="/commander" 
+            element={
+              <ProtectedRoute requiredRole="CLIENT">
+                <Header />
+                <Commander />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
             path="/favoris" 
             element={
               <ProtectedRoute requiredRole="CLIENT">
                 <Header />
-                <ClientFavoris />
+                <Favoris />
               </ProtectedRoute>
             } 
           />
@@ -132,8 +167,35 @@ function App() {
             element={
               <ProtectedRoute requiredRole="CLIENT">
                 <Header />
-                <ClientAdresses />
+                <Adresses />
               </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/client/profil" 
+            element={
+              <ProtectedRoute requiredRole="CLIENT">
+                <Header />
+                <ProfilClient />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/notifications" 
+            element={
+              <ProtectedRoute>
+                <Header />
+                <Notifications />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/produits/:id/avis" 
+            element={
+              <>
+                <Header />
+                <AvisProduit />
+              </>
             } 
           />
           <Route 
@@ -145,6 +207,17 @@ function App() {
               </ProtectedRoute>
             } 
           />
+          <Route 
+            path="/paiement/:commandeId" 
+            element={
+              <ProtectedRoute requiredRole="CLIENT">
+                <Header />
+                <Paiement />
+              </ProtectedRoute>
+            } 
+          />
+          <Route path="/paiement/succes" element={<><Header /><PaiementSucces /></>} />
+          <Route path="/paiement/annule" element={<><Header /><PaiementAnnule /></>} />
           
           {/* Routes protégées Vendeur avec VendorLayout */}
           <Route path="/vendeur/*" element={<VendeurGuard />}>
@@ -152,6 +225,7 @@ function App() {
             <Route path="attente-validation" element={<PageAttenteValidationCompte />} />
             <Route path="creer-boutique-status" element={<DashboardCreationBoutique />} />
             <Route path="creer-boutique" element={<CreerBoutique />} />
+            <Route path="guide" element={<GuideVendeurPage />} />
             
             {/* Dashboard avec layout */}
             <Route path="*" element={<VendorLayout />}>
@@ -160,13 +234,15 @@ function App() {
               <Route path="produits" element={<VendeurProduits />} />
               <Route path="produits/:id/modifier" element={<ModifierProduit />} />
               <Route path="ajouter-produit" element={<AjouterProduit />} />
-              <Route path="gestion-stock" element={<VendeurGestionStock />} />
+              <Route path="gestion-stock" element={<GestionStock />} />
+              <Route path="produits/:id/variantes" element={<GestionVariantes />} />
               <Route path="gestion-livraison" element={<VendeurGestionLivraison />} />
               <Route path="commandes" element={<VendeurCommandes />} />
               <Route path="recuperer-commandes" element={<RecupererCommandes />} />
               <Route path="api-commandes" element={<RecupererCommandesAPI />} />
-              <Route path="analytics" element={<VendeurAnalytics />} />
+              <Route path="analytics" element={<AnalyticsVendeur />} />
               <Route path="parametres" element={<VendeurParametres />} />
+              <Route path="profil" element={<ProfilVendeur />} />
             </Route>
           </Route>
           

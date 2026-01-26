@@ -17,11 +17,25 @@ interface Produit {
   prix: number;
   stock: number;
   status: 'ACTIVE' | 'HIDDEN';
-  categorie: {
-    nom: string;
+  categorieObj?: {
+    id?: string;
+    nom?: string;
+    description?: string;
   };
+  images?: string[];
   dateCreation: string;
   nombreVentes: number;
+  details?: {
+    taille?: string[];
+    couleur?: string[];
+    marque?: string;
+    matiere?: string;
+    poids?: string;
+    dimensions?: string;
+    garantie?: string;
+    origine?: string;
+    attributsPersonnalises?: { [key: string]: any };
+  };
 }
 
 export default function VendeurProduits() {
@@ -37,10 +51,55 @@ export default function VendeurProduits() {
   const fetchProduits = async () => {
     try {
       const response = await vendorService.getProduits();
-      setProduits(response.data);
-    } catch (error) {
+      console.log('Produits reçus du backend:', response.data);
+      
+      // Mapper les produits avec parsing des détails
+      const produitsMappes = response.data.map((p: any) => {
+        let details = p.details || {};
+        
+        // Gérer les images - parser si string
+        let images = [];
+        if (p.images) {
+          if (typeof p.images === 'string') {
+            images = p.images.split(',').map((img: string) => img.trim()).filter(Boolean);
+          } else if (Array.isArray(p.images)) {
+            images = p.images.filter(Boolean);
+          }
+        }
+        
+        // Parser sizes/colors si JSON strings
+        if (p.sizes && typeof p.sizes === 'string' && p.sizes !== '[]') {
+          try {
+            details.taille = JSON.parse(p.sizes);
+          } catch (e) { }
+        }
+        if (p.colors && typeof p.colors === 'string' && p.colors !== '[]') {
+          try {
+            details.couleur = JSON.parse(p.colors);
+          } catch (e) { }
+        }
+        
+        // Mapper les autres détails (gérer tous les types)
+        if (p.marque && String(p.marque).trim()) details.marque = String(p.marque);
+        if (p.materiau && String(p.materiau).trim()) details.matiere = String(p.materiau);
+        if (p.poids != null && String(p.poids).trim()) details.poids = String(p.poids);
+        if (p.dimensions && String(p.dimensions).trim()) details.dimensions = String(p.dimensions);
+        if (p.periodeGarantie && String(p.periodeGarantie).trim()) details.garantie = String(p.periodeGarantie);
+        if (p.origine && String(p.origine).trim()) details.origine = String(p.origine);
+        
+        return { 
+          ...p, 
+          details,
+          images,
+          stock: Number(p.quantiteStock || p.stock) || 0
+        };
+      });
+      
+      console.log('Produits mappés:', produitsMappes);
+      setProduits(produitsMappes);
+    } catch (error: any) {
       console.error('Erreur lors du chargement des produits:', error);
-      toast.error('Erreur lors du chargement');
+      toast.error('Erreur lors du chargement des produits');
     } finally {
       setLoading(false);
     }
@@ -77,7 +136,7 @@ export default function VendeurProduits() {
 
   const filteredProduits = produits.filter(produit =>
     produit.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    produit.categorie.nom.toLowerCase().includes(searchTerm.toLowerCase())
+    (produit.categorieObj?.nom || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const getStatutBadge = (status: string) => {
@@ -180,89 +239,147 @@ export default function VendeurProduits() {
       ) : (
         <div style={{ display: 'grid', gap: '16px' }}>
           {filteredProduits.map((produit) => (
-            <div key={produit.id} style={{ backgroundColor: 'white', padding: '24px', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
-                    <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', marginRight: '12px' }}>{decodeHTML(produit.nom)}</h3>
-                    {getStatutBadge(produit.status)}
+            <div key={produit.id} style={{ backgroundColor: 'white', padding: '24px', borderRadius: '12px', border: '1px solid #e5e7eb', display: 'flex', gap: '20px' }}>
+              {/* Image du produit */}
+              <div style={{ flexShrink: 0 }}>
+                <img 
+                  src={(produit.images && produit.images[0]) || 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=400'} 
+                  alt={produit.nom}
+                  style={{ width: '120px', height: '120px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e5e7eb' }}
+                />
+              </div>
+              
+              {/* Contenu */}
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
+                      <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', marginRight: '12px' }}>{decodeHTML(produit.nom)}</h3>
+                      {getStatutBadge(produit.status)}
+                    </div>
+                    
+                    <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '16px', lineHeight: '1.5' }}>{decodeHTML(produit.description)}</p>
+                    
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '16px' }}>
+                      <div>
+                        <span style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Prix</span>
+                        <span style={{ fontSize: '16px', fontWeight: '600', color: '#2563eb' }}>{produit.prix ? produit.prix.toLocaleString() : '0'} FCFA</span>
+                      </div>
+                      <div>
+                        <span style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Stock</span>
+                        <span style={{ fontSize: '16px', fontWeight: '600', color: (produit.stock || 0) > 0 ? '#16a34a' : '#dc2626' }}>
+                          {produit.stock || 0} {(produit.stock || 0) <= 1 ? 'unité' : 'unités'}
+                        </span>
+                      </div>
+                      <div>
+                        <span style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Catégorie</span>
+                        <span style={{ fontSize: '14px', fontWeight: '500', color: '#111827' }}>{produit.categorieObj?.nom || 'Non définie'}</span>
+                      </div>
+                      <div>
+                        <span style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Ventes</span>
+                        <span style={{ fontSize: '14px', fontWeight: '500', color: '#111827' }}>{produit.nombreVentes || 0}</span>
+                      </div>
+                      <div>
+                        <span style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Créé le</span>
+                        <span style={{ fontSize: '14px', color: '#111827' }}>{produit.dateCreation ? new Date(produit.dateCreation).toLocaleDateString() : 'N/A'}</span>
+                      </div>
+                    </div>
+                    
+                    {/* Détails produit */}
+                    {produit.details && (produit.details.taille?.length || produit.details.couleur?.length || produit.details.marque || produit.details.origine || produit.details.garantie) && (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px', padding: '16px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                        {produit.details.marque && (
+                          <div>
+                            <span style={{ fontSize: '11px', color: '#6b7280', textTransform: 'uppercase', fontWeight: '600', letterSpacing: '0.5px', display: 'block', marginBottom: '4px' }}>Marque</span>
+                            <span style={{ fontSize: '14px', color: '#111827', fontWeight: '500' }}>{produit.details.marque}</span>
+                          </div>
+                        )}
+                        {produit.details.taille && produit.details.taille.length > 0 && (
+                          <div>
+                            <span style={{ fontSize: '11px', color: '#6b7280', textTransform: 'uppercase', fontWeight: '600', letterSpacing: '0.5px', display: 'block', marginBottom: '4px' }}>Tailles</span>
+                            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                              {produit.details.taille.slice(0, 4).map((t, i) => (
+                                <span key={i} style={{ padding: '2px 8px', backgroundColor: '#dbeafe', color: '#2563eb', borderRadius: '4px', fontSize: '12px', fontWeight: '500' }}>{t}</span>
+                              ))}
+                              {produit.details.taille.length > 4 && <span style={{ fontSize: '12px', color: '#6b7280' }}>+{produit.details.taille.length - 4}</span>}
+                            </div>
+                          </div>
+                        )}
+                        {produit.details.couleur && produit.details.couleur.length > 0 && (
+                          <div>
+                            <span style={{ fontSize: '11px', color: '#6b7280', textTransform: 'uppercase', fontWeight: '600', letterSpacing: '0.5px', display: 'block', marginBottom: '4px' }}>Couleurs</span>
+                            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                              {produit.details.couleur.slice(0, 4).map((c, i) => (
+                                <span key={i} style={{ padding: '2px 8px', backgroundColor: '#dcfce7', color: '#16a34a', borderRadius: '4px', fontSize: '12px', fontWeight: '500' }}>{c}</span>
+                              ))}
+                              {produit.details.couleur.length > 4 && <span style={{ fontSize: '12px', color: '#6b7280' }}>+{produit.details.couleur.length - 4}</span>}
+                            </div>
+                          </div>
+                        )}
+                        {produit.details.origine && (
+                          <div>
+                            <span style={{ fontSize: '11px', color: '#6b7280', textTransform: 'uppercase', fontWeight: '600', letterSpacing: '0.5px', display: 'block', marginBottom: '4px' }}>Origine</span>
+                            <span style={{ fontSize: '14px', color: '#111827', fontWeight: '500' }}>{produit.details.origine}</span>
+                          </div>
+                        )}
+                        {produit.details.garantie && (
+                          <div>
+                            <span style={{ fontSize: '11px', color: '#6b7280', textTransform: 'uppercase', fontWeight: '600', letterSpacing: '0.5px', display: 'block', marginBottom: '4px' }}>Garantie</span>
+                            <span style={{ fontSize: '14px', color: '#111827', fontWeight: '500' }}>{produit.details.garantie}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  
-                  <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '16px', lineHeight: '1.5' }}>{decodeHTML(produit.description)}</p>
-                  
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px' }}>
-                    <div>
-                      <span style={{ fontSize: '12px', color: '#6b7280', display: 'block' }}>Prix</span>
-                      <span style={{ fontSize: '16px', fontWeight: '600', color: '#2563eb' }}>{produit.prix.toLocaleString()} FCFA</span>
-                    </div>
-                    <div>
-                      <span style={{ fontSize: '12px', color: '#6b7280', display: 'block' }}>Stock</span>
-                      <span style={{ fontSize: '16px', fontWeight: '600', color: produit.stock > 0 ? '#111827' : '#dc2626' }}>
-                        {produit.stock} {produit.stock <= 1 ? 'unité' : 'unités'}
-                      </span>
-                    </div>
-                    <div>
-                      <span style={{ fontSize: '12px', color: '#6b7280', display: 'block' }}>Catégorie</span>
-                      <span style={{ fontSize: '14px', color: '#111827' }}>{produit.categorie.nom}</span>
-                    </div>
-                    <div>
-                      <span style={{ fontSize: '12px', color: '#6b7280', display: 'block' }}>Ventes</span>
-                      <span style={{ fontSize: '14px', color: '#111827' }}>{produit.nombreVentes}</span>
-                    </div>
-                    <div>
-                      <span style={{ fontSize: '12px', color: '#6b7280', display: 'block' }}>Créé le</span>
-                      <span style={{ fontSize: '14px', color: '#111827' }}>{new Date(produit.dateCreation).toLocaleDateString()}</span>
-                    </div>
-                  </div>
-                </div>
 
-                <div style={{ display: 'flex', gap: '8px', marginLeft: '24px' }}>
-                  <Link
-                    to={`/vendeur/produits/${produit.id}/modifier`}
-                    style={{
-                      padding: '8px',
-                      backgroundColor: '#dbeafe',
-                      color: '#2563eb',
-                      border: 'none',
-                      borderRadius: '6px',
-                      textDecoration: 'none',
-                      display: 'flex',
-                      alignItems: 'center'
-                    }}
-                  >
-                    <Edit2 size={16} />
-                  </Link>
-                  
-                  <button
-                    onClick={() => toggleProduitStatus(produit.id, produit.status)}
-                    disabled={actionLoading === produit.id}
-                    style={{
-                      padding: '8px',
-                      backgroundColor: produit.status === 'ACTIVE' ? '#fee2e2' : '#dbeafe',
-                      color: produit.status === 'ACTIVE' ? '#dc2626' : '#2563eb',
-                      border: 'none',
-                      borderRadius: '6px',
-                      cursor: 'pointer'
-                    }}
-                    title={produit.status === 'ACTIVE' ? 'Masquer' : 'Activer'}
-                  >
-                    {produit.status === 'ACTIVE' ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                  
-                  <button
-                    onClick={() => supprimerProduit(produit.id)}
-                    disabled={actionLoading === produit.id}
-                    style={{
-                      padding: '8px',
-                      backgroundColor: '#fee2e2',
-                      color: '#dc2626',
-                      border: 'none',
-                      borderRadius: '6px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px', marginLeft: '24px' }}>
+                    <Link
+                      to={`/vendeur/produits/${produit.id}/modifier`}
+                      style={{
+                        padding: '8px',
+                        backgroundColor: '#dbeafe',
+                        color: '#2563eb',
+                        border: 'none',
+                        borderRadius: '6px',
+                        textDecoration: 'none',
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}
+                    >
+                      <Edit2 size={16} />
+                    </Link>
+                    
+                    <button
+                      onClick={() => toggleProduitStatus(produit.id, produit.status)}
+                      disabled={actionLoading === produit.id}
+                      style={{
+                        padding: '8px',
+                        backgroundColor: produit.status === 'ACTIVE' ? '#fee2e2' : '#dbeafe',
+                        color: produit.status === 'ACTIVE' ? '#dc2626' : '#2563eb',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer'
+                      }}
+                      title={produit.status === 'ACTIVE' ? 'Masquer' : 'Activer'}
+                    >
+                      {produit.status === 'ACTIVE' ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                    
+                    <button
+                      onClick={() => supprimerProduit(produit.id)}
+                      disabled={actionLoading === produit.id}
+                      style={{
+                        padding: '8px',
+                        backgroundColor: '#fee2e2',
+                        color: '#dc2626',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

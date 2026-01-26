@@ -56,7 +56,14 @@ export const VendeurGuard: React.FC = () => {
             break;
           case StatutCompteVendeur.COMPTE_VALIDE:
             setDebugInfo('Compte validé, vérification boutique...');
-            // Vérifier le statut de la boutique
+            // Permettre l'accès direct au guide
+            const currentPath = window.location.pathname;
+            if (currentPath === '/vendeur/guide') {
+              setIsLoading(false);
+              return;
+            }
+            
+            // Vérifier le statut de la boutique pour les autres pages
             try {
               const boutiqueResponse = await vendorService.getBoutique();
               const data = boutiqueResponse.data;
@@ -107,10 +114,18 @@ export const VendeurGuard: React.FC = () => {
             }
             break;
         }
-      } catch (error) {
-        setDebugInfo(`Erreur statut: ${error}`);
+      } catch (error: any) {
+        setDebugInfo(`Erreur statut: ${error.code || error.message}`);
         console.error('Erreur lors de la vérification du statut:', error);
-        navigate('/vendeur/erreur');
+        
+        // Si c'est une erreur de connexion (backend non démarré), permettre l'accès en mode dégradé
+        if (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK' || error.message?.includes('aborted')) {
+          setDebugInfo('Backend non accessible - Mode dégradé activé');
+          // Permettre l'accès mais avec un avertissement
+          console.warn('Backend non accessible, fonctionnement en mode dégradé');
+        } else {
+          navigate('/vendeur/erreur');
+        }
       } finally {
         setIsLoading(false);
       }

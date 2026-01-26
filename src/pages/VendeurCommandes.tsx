@@ -1,547 +1,275 @@
-import React, { useState, useEffect } from 'react';
-import { Package, TrendingUp, Clock, CheckCircle } from 'lucide-react';
-import axios from 'axios';
-import '../styles/animations.css';
+import { useEffect, useState } from 'react';
+import { Package, Clock, CheckCircle, FileText } from 'lucide-react';
+import { vendorService } from '../services/api';
+import { STATUS_LABELS, STATUS_COLORS, ORDER_STATUS } from '../constants/orderStatus';
+import FactureModal from '../components/FactureModal';
+import toast from 'react-hot-toast';
 
-interface CommandeProduit {
-  id: string;
-  nom: string;
-  prix: number;
-  quantite: number;
-  image?: string;
-  vendeurId?: string;
-}
-
-interface CommandeVendeur {
-  id: string;
-  statut: string;
-  dateCommande: string;
-  adresseLivraison: string;
-  telephone?: string;
-  produits?: CommandeProduit[];
-  total?: number;
-}
-
-const VendeurCommandes: React.FC = () => {
-  console.log('=== VendeurCommandes component loaded ===');
-  console.log('localStorage userId:', localStorage.getItem('userId'));
-  console.log('localStorage userRole:', localStorage.getItem('userRole'));
-  console.log('localStorage token:', localStorage.getItem('token') ? 'Présent' : 'Absent');
+// Mapping des images produits
+const getProductImage = (productName: string): string => {
+  const name = productName?.toLowerCase() || '';
   
-  const [commandes, setCommandes] = useState<CommandeVendeur[]>([]);
-  const [filtreStatut, setFiltreStatut] = useState<string>('tous');
+  if (name.includes('boubou')) {
+    return 'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=400&h=400&fit=crop';
+  }
+  if (name.includes('iphone') || name.includes('phone')) {
+    return 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400&h=400&fit=crop';
+  }
+  if (name.includes('chaussette')) {
+    return 'https://images.unsplash.com/photo-1586350977771-b3b0abd50c82?w=400&h=400&fit=crop';
+  }
+  if (name.includes('pantalon') || name.includes('bogolan')) {
+    return 'https://images.unsplash.com/photo-1473966968600-fa801b869a1a?w=400&h=400&fit=crop';
+  }
+  if (name.includes('chemise')) {
+    return 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=400&h=400&fit=crop';
+  }
+  // Image par défaut
+  return 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&h=400&fit=crop';
+};
+
+interface Commande {
+  id: string;
+  numero: string;
+  statut: string;
+  total?: number; // Optional
+  dateCreation: string;
+  client?: { nomComplet?: string; telephone?: string };
+  items: Array<{ quantite: number; produit: { nom: string; images: string[] } }>;
+}
+
+const statuts = [
+  { value: ORDER_STATUS.PENDING, label: STATUS_LABELS.PENDING, color: 'bg-yellow-100 text-yellow-800' },
+  { value: ORDER_STATUS.CONFIRMED, label: STATUS_LABELS.CONFIRMED, color: 'bg-blue-100 text-blue-800' },
+  { value: ORDER_STATUS.SHIPPED, label: STATUS_LABELS.SHIPPED, color: 'bg-purple-100 text-purple-800' },
+  { value: ORDER_STATUS.DELIVERED, label: STATUS_LABELS.DELIVERED, color: 'bg-green-100 text-green-800' }
+];
+
+export default function VendeurCommandes() {
+  const [commandes, setCommandes] = useState<Commande[]>([]);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    total: 0,
-    enAttente: 0,
-    confirmees: 0,
-    livrees: 0,
-    chiffreAffaires: 0
-  });
+  const [filter, setFilter] = useState('TOUS');
+  const [factureModal, setFactureModal] = useState<{ isOpen: boolean; commandeId: string }>({ isOpen: false, commandeId: '' });
 
   useEffect(() => {
-    console.log('=== useEffect triggered ===');
-    chargerCommandes();
+    console.log('=== useEffect VendeurCommandes déclenché ===');
+    fetchCommandes();
   }, []);
 
-  const chargerCommandes = async () => {
+  const fetchCommandes = async () => {
+    setLoading(true);
+    
     try {
-      setLoading(true);
-      const vendeurId = localStorage.getItem('userId');
-      const token = localStorage.getItem('token');
+      const response = await vendorService.getCommandes();
+      const data = Array.isArray(response.data) ? response.data : [];
       
-      console.log('Chargement commandes vendeur:', vendeurId);
-      console.log('Token:', token ? 'Présent' : 'Absent');
-      
-      const response = await axios.get('http://localhost:8081/api/vendeur/commandes', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'X-User-Id': vendeurId
-        }
-      });
-      
-      console.log('Réponse API commandes:', response.data);
-      
-      const commandesAPI = response.data || [];
-      
-      // Mapper les données API vers le format attendu
-      const commandesMappees = commandesAPI.map((cmd: any) => ({
-        id: cmd.id,
-        statut: cmd.status,
-        dateCommande: cmd.createdAt,
-        adresseLivraison: cmd.deliveryAddress,
-        telephone: cmd.deliveryPhone,
-        total: cmd.totalAmount,
-        produits: cmd.orderItems?.map((item: any) => ({
-          id: item.product?.id,
-          nom: item.product?.nom,
-          prix: item.unitPrice,
-          quantite: item.quantity,
-          image: item.product?.images?.[0],
-          vendeurId: item.product?.boutique?.vendeurId
-        })) || []
+      const commandesMappees = data.map((cmd: any, index: number) => ({
+        id: cmd.id || `temp-${index}`,
+        numero: cmd.numero || `CMD-${(cmd.id || '').slice(-6)}`,
+        statut: cmd.statut || ORDER_STATUS.PENDING,
+        total: Number(cmd.total || 0),
+        dateCreation: cmd.dateCreation || new Date().toISOString(),
+        client: {
+          nomComplet: cmd.clientNom || 'Client inconnu',
+          telephone: cmd.clientTelephone || 'N/A'
+        },
+        items: cmd.items || []
       }));
       
-      // Calculer les statistiques
-      const statsCalculees = {
-        total: commandesMappees.length,
-        enAttente: commandesMappees.filter((c: any) => c.statut === 'PENDING').length,
-        confirmees: commandesMappees.filter((c: any) => c.statut === 'CONFIRMED' || c.statut === 'PAID').length,
-        livrees: commandesMappees.filter((c: any) => c.statut === 'DELIVERED').length,
-        chiffreAffaires: commandesMappees.reduce((total: number, commande: any) => {
-          return total + (commande.total || 0);
-        }, 0)
-      };
-      
-      console.log('Statistiques calculées:', statsCalculees);
-      console.log('Commandes mappées:', commandesMappees);
-      
-      setStats(statsCalculees);
+      console.log('Statuts des commandes:', commandesMappees.map(c => c.statut));
+      console.log('Statuts uniques:', [...new Set(commandesMappees.map(c => c.statut))]);
       setCommandes(commandesMappees);
-      
     } catch (error: any) {
-      console.error('Erreur lors du chargement des commandes:', error);
-      console.error('Détails erreur:', error.response?.data);
-      // Fallback vers localStorage si API échoue
-      console.log('Fallback vers localStorage...');
-      chargerCommandesLocal();
+      console.error('Erreur chargement commandes vendeur:', error);
+      toast.error('Erreur lors du chargement des commandes');
+      setCommandes([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const chargerCommandesLocal = () => {
-    console.log('Chargement depuis localStorage...');
-    const toutesCommandes = JSON.parse(localStorage.getItem('commandes') || '[]');
-    const vendeurId = localStorage.getItem('userId') || '1';
+  const updateStatut = async (commandeId: string, newStatut: string) => {
+    const commande = commandes.find(c => c.id === commandeId);
+    console.log('Current status:', commande?.statut, '-> New status:', newStatut);
     
-    console.log('Toutes commandes localStorage:', toutesCommandes);
-    console.log('Vendeur ID:', vendeurId);
-    
-    const commandesVendeur = toutesCommandes.filter((commande: CommandeVendeur) =>
-      commande.produits?.some(p => p.vendeurId === vendeurId)
-    );
-    
-    console.log('Commandes filtrées pour vendeur:', commandesVendeur);
-    
-    const statsCalculees = {
-      total: commandesVendeur.length,
-      enAttente: commandesVendeur.filter(c => c.statut === 'PENDING' || c.statut === 'en_attente').length,
-      confirmees: commandesVendeur.filter(c => c.statut === 'CONFIRMED' || c.statut === 'confirmee' || c.statut === 'PAID' || c.statut === 'en_preparation').length,
-      livrees: commandesVendeur.filter(c => c.statut === 'DELIVERED' || c.statut === 'livree').length,
-      chiffreAffaires: commandesVendeur.reduce((total, commande) => {
-        const montantVendeur = commande.produits
-          ?.filter(p => p.vendeurId === vendeurId)
-          .reduce((sum, p) => sum + (p.prix * p.quantite), 0) || 0;
-        return total + montantVendeur;
-      }, 0)
-    };
-    
-    setStats(statsCalculees);
-    setCommandes(commandesVendeur);
-  };
-
-  const changerStatut = async (commandeId: string, nouveauStatut: string) => {
     try {
-      const token = localStorage.getItem('token');
-      const vendeurId = localStorage.getItem('userId');
+      await vendorService.updateCommandeStatut(commandeId, newStatut);
       
-      let endpoint = '';
-      switch (nouveauStatut) {
-        case 'CONFIRMED':
-          endpoint = `http://localhost:8081/api/vendeur/commandes/${commandeId}/confirmer`;
-          break;
-        case 'SHIPPED':
-          endpoint = `http://localhost:8081/api/vendeur/commandes/${commandeId}/expedier`;
-          break;
-        case 'DELIVERED':
-          endpoint = `http://localhost:8081/api/vendeur/commandes/${commandeId}/livrer`;
-          break;
-        default:
-          endpoint = `http://localhost:8081/api/vendeur/commandes/${commandeId}/statut?statut=${nouveauStatut}`;
-      }
-      
-      await axios.put(endpoint, {}, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'X-User-Id': vendeurId
+      // Si la commande passe à CONFIRMEE, décrémenter le stock
+      if (newStatut === ORDER_STATUS.CONFIRMED && commande?.statut !== ORDER_STATUS.CONFIRMED) {
+        try {
+          await vendorService.decrementerStock(commandeId);
+          console.log('Stock décrémenté pour la commande:', commandeId);
+        } catch (stockError) {
+          console.error('Erreur décrémentation stock:', stockError);
+          toast.error('Commande confirmée mais erreur mise à jour stock');
         }
-      });
-      
-      chargerCommandes();
-      
-    } catch (error) {
-      console.error('Erreur lors du changement de statut:', error);
-      const toutesCommandes = JSON.parse(localStorage.getItem('commandes') || '[]');
-      const commandeIndex = toutesCommandes.findIndex((c: CommandeVendeur) => c.id === commandeId);
-      
-      if (commandeIndex !== -1) {
-        toutesCommandes[commandeIndex].statut = nouveauStatut;
-        localStorage.setItem('commandes', JSON.stringify(toutesCommandes));
-        chargerCommandesLocal();
       }
+      
+      toast.success('Statut mis à jour');
+      fetchCommandes();
+    } catch (error: any) {
+      console.error('Status transition error:', error.response?.data);
+      toast.error(`Erreur: ${error.response?.data || error.message}`);
     }
   };
 
-  const commandesFiltrees = filtreStatut === 'tous' 
+  const filteredCommandes = filter === 'TOUS' 
     ? commandes 
-    : commandes.filter(c => c.statut === filtreStatut);
-
-  const getStatutColor = (statut: string) => {
-    switch (statut) {
-      case 'PENDING': return '#f59e0b';
-      case 'CONFIRMED': return '#3b82f6';
-      case 'PAID': return '#8b5cf6';
-      case 'SHIPPED': return '#10b981';
-      case 'DELIVERED': return '#059669';
-      case 'CANCELLED': return '#ef4444';
-      default: return '#6b7280';
-    }
-  };
+    : commandes.filter(c => {
+        console.log('Filtrage:', c.statut, 'vs', filter, '=', c.statut === filter);
+        return c.statut === filter;
+      });
 
   if (loading) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        minHeight: '400px' 
-      }}>
-        <div style={{
-          width: '40px',
-          height: '40px',
-          border: '3px solid #e5e7eb',
-          borderTop: '3px solid #2563eb',
-          borderRadius: '50%',
-          animation: 'spin 1s linear infinite'
-        }}></div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}>
+        <div style={{ width: '48px', height: '48px', border: '2px solid #e5e7eb', borderTop: '2px solid #2563eb', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
-      {/* Statistiques */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-        gap: '20px',
-        marginBottom: '30px'
-      }}>
-        <div style={{
-          backgroundColor: 'white',
-          padding: '20px',
-          borderRadius: '8px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-          display: 'flex',
-          alignItems: 'center'
-        }}>
-          <div style={{
-            backgroundColor: '#dbeafe',
-            padding: '12px',
-            borderRadius: '8px',
-            marginRight: '16px'
-          }}>
-            <Package size={24} style={{ color: '#2563eb' }} />
-          </div>
-          <div>
-            <p style={{ fontSize: '14px', color: '#6b7280', margin: 0 }}>Total commandes</p>
-            <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#0f172a', margin: 0 }}>{stats.total}</p>
-          </div>
-        </div>
+    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px' }}>
+      <h1 style={{ fontSize: '30px', fontWeight: 'bold', color: '#111827', marginBottom: '32px' }}>Mes Commandes</h1>
 
-        <div style={{
-          backgroundColor: 'white',
-          padding: '20px',
-          borderRadius: '8px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-          display: 'flex',
-          alignItems: 'center'
-        }}>
-          <div style={{
-            backgroundColor: '#fef3c7',
-            padding: '12px',
-            borderRadius: '8px',
-            marginRight: '16px'
-          }}>
-            <Clock size={24} style={{ color: '#f59e0b' }} />
-          </div>
-          <div>
-            <p style={{ fontSize: '14px', color: '#6b7280', margin: 0 }}>En attente</p>
-            <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#0f172a', margin: 0 }}>{stats.enAttente}</p>
-          </div>
-        </div>
-
-        <div style={{
-          backgroundColor: 'white',
-          padding: '20px',
-          borderRadius: '8px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-          display: 'flex',
-          alignItems: 'center'
-        }}>
-          <div style={{
-            backgroundColor: '#dcfce7',
-            padding: '12px',
-            borderRadius: '8px',
-            marginRight: '16px'
-          }}>
-            <CheckCircle size={24} style={{ color: '#059669' }} />
-          </div>
-          <div>
-            <p style={{ fontSize: '14px', color: '#6b7280', margin: 0 }}>Livrées</p>
-            <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#0f172a', margin: 0 }}>{stats.livrees}</p>
-          </div>
-        </div>
-
-        <div style={{
-          backgroundColor: 'white',
-          padding: '20px',
-          borderRadius: '8px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-          display: 'flex',
-          alignItems: 'center'
-        }}>
-          <div style={{
-            backgroundColor: '#e9d5ff',
-            padding: '12px',
-            borderRadius: '8px',
-            marginRight: '16px'
-          }}>
-            <TrendingUp size={24} style={{ color: '#8b5cf6' }} />
-          </div>
-          <div>
-            <p style={{ fontSize: '14px', color: '#6b7280', margin: 0 }}>Chiffre d'affaires</p>
-            <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#0f172a', margin: 0 }}>{stats.chiffreAffaires.toFixed(0)}€</p>
-          </div>
-        </div>
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
+        {['TOUS', ORDER_STATUS.PENDING, ORDER_STATUS.CONFIRMED, ORDER_STATUS.SHIPPED, ORDER_STATUS.DELIVERED].map((f) => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: filter === f ? '#2563eb' : 'white',
+              color: filter === f ? 'white' : '#374151',
+              border: '1px solid #e5e7eb',
+              borderRadius: '8px',
+              fontSize: '14px',
+              cursor: 'pointer'
+            }}
+          >
+            {f === 'TOUS' ? 'Toutes' : STATUS_LABELS[f]}
+          </button>
+        ))}
       </div>
 
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        marginBottom: '30px'
-      }}>
-        <h1 style={{ 
-          fontSize: '28px', 
-          fontWeight: 'bold', 
-          color: '#0f172a',
-          margin: 0
-        }}>
-          Mes Commandes
-        </h1>
-        
-        <select
-          value={filtreStatut}
-          onChange={(e) => setFiltreStatut(e.target.value)}
-          style={{
-            padding: '8px 12px',
-            border: '1px solid #d1d5db',
-            borderRadius: '6px',
-            fontSize: '14px'
-          }}
-        >
-          <option value="tous">Toutes les commandes</option>
-          <option value="PENDING">En attente</option>
-          <option value="CONFIRMED">Confirmées</option>
-          <option value="PAID">Payées</option>
-          <option value="SHIPPED">Expédiées</option>
-          <option value="DELIVERED">Livrées</option>
-          <option value="CANCELLED">Annulées</option>
-        </select>
-      </div>
-
-      {commandesFiltrees.length === 0 ? (
-        <div style={{
-          textAlign: 'center',
-          padding: '60px 20px',
-          color: '#6b7280'
-        }}>
-          <p style={{ fontSize: '18px', marginBottom: '10px' }}>
-            Aucune commande trouvée
-          </p>
-          <p>Les commandes contenant vos produits apparaîtront ici</p>
-        </div>
-      ) : (
-        <div style={{ display: 'grid', gap: '20px' }}>
-          {commandesFiltrees.map((commande) => (
-            <div
-              key={commande.id}
-              style={{
-                backgroundColor: 'white',
-                border: '1px solid #e5e7eb',
-                borderRadius: '8px',
-                padding: '20px',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-              }}
-            >
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'flex-start',
-                marginBottom: '15px'
-              }}>
-                <div>
-                  <h3 style={{ 
-                    fontSize: '18px', 
-                    fontWeight: '600', 
-                    color: '#0f172a',
-                    margin: '0 0 5px 0'
-                  }}>
-                    Commande #{commande.id?.slice(-8)}
-                  </h3>
-                  <p style={{ 
-                    color: '#6b7280', 
-                    fontSize: '14px',
-                    margin: 0
-                  }}>
-                    {new Date(commande.dateCommande || Date.now()).toLocaleDateString('fr-FR')}
-                  </p>
-                </div>
-                
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                  <span style={{
-                    padding: '4px 12px',
-                    borderRadius: '20px',
-                    fontSize: '12px',
-                    fontWeight: '500',
-                    backgroundColor: getStatutColor(commande.statut) + '20',
-                    color: getStatutColor(commande.statut)
-                  }}>
-                    {commande.statut.replace('_', ' ').toUpperCase()}
+      <div style={{ display: 'grid', gap: '16px' }}>
+        {filteredCommandes.map((commande) => (
+          <div key={commande.id} style={{ backgroundColor: 'white', padding: '24px', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '16px' }}>
+              <div>
+                <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', marginBottom: '4px' }}>{commande.numero}</h3>
+                <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '4px' }}>{new Date(commande.dateCreation).toLocaleString('fr-FR')}</p>
+                <p style={{ fontSize: '14px', color: '#374151', marginBottom: '4px' }}>
+                  <strong>Client:</strong> {commande.client?.nomComplet || 'Client inconnu'} - {commande.client?.telephone || 'N/A'}
+                </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '8px' }}>
+                  <span style={{ padding: '6px 16px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', backgroundColor: statuts.find(s => s.value === commande.statut)?.value === 'LIVREE' ? '#dcfce7' : '#dbeafe', color: statuts.find(s => s.value === commande.statut)?.value === 'LIVREE' ? '#16a34a' : '#2563eb' }}>
+                    {statuts.find(s => s.value === commande.statut)?.label}
                   </span>
-                  
-                  <select
-                    value={commande.statut}
-                    onChange={(e) => changerStatut(commande.id, e.target.value)}
-                    style={{
-                      padding: '6px 10px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '4px',
-                      fontSize: '12px'
-                    }}
-                  >
-                    <option value="PENDING">En attente</option>
-                    <option value="CONFIRMED">Confirmée</option>
-                    <option value="PAID">Payée</option>
-                    <option value="SHIPPED">Expédiée</option>
-                    <option value="DELIVERED">Livrée</option>
-                    <option value="CANCELLED">Annulée</option>
-                  </select>
+                  <span style={{ fontSize: '14px', color: '#6b7280' }}>
+                    {commande.items?.reduce((sum, item) => sum + (item.quantite || 1), 0) || 0} article(s)
+                  </span>
                 </div>
               </div>
-
-              <div style={{ marginBottom: '15px' }}>
-                <h4 style={{ 
-                  fontSize: '14px', 
-                  fontWeight: '600', 
-                  color: '#374151',
-                  marginBottom: '10px'
-                }}>
-                  Mes produits dans cette commande:
-                </h4>
-                
-                {commande.produits
-                  ?.map((produit, index) => (
-                  <div
-                    key={index}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      padding: '10px',
-                      backgroundColor: '#f9fafb',
-                      borderRadius: '6px',
-                      marginBottom: '8px'
-                    }}
-                  >
-                    <img
-                      src={produit.image || `https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=100&h=100&fit=crop`}
-                      alt={produit.nom}
-                      style={{
-                        width: '50px',
-                        height: '50px',
-                        objectFit: 'cover',
-                        borderRadius: '4px',
-                        marginRight: '12px'
-                      }}
-                    />
-                    <div style={{ flex: 1 }}>
-                      <p style={{ 
-                        fontWeight: '500', 
-                        color: '#0f172a',
-                        margin: '0 0 4px 0'
-                      }}>
-                        {produit.nom}
-                      </p>
-                      <p style={{ 
-                        color: '#6b7280', 
-                        fontSize: '14px',
-                        margin: 0
-                      }}>
-                        Quantité: {produit.quantite} × {produit.prix}€
-                      </p>
-                    </div>
-                    <div style={{ 
-                      fontWeight: '600', 
-                      color: '#0f172a'
-                    }}>
-                      {(produit.quantite * produit.prix).toFixed(2)}€
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: '20px',
-                paddingTop: '15px',
-                borderTop: '1px solid #e5e7eb'
-              }}>
-                <div>
-                  <h4 style={{ 
-                    fontSize: '14px', 
-                    fontWeight: '600', 
-                    color: '#374151',
-                    marginBottom: '8px'
-                  }}>
-                    Adresse de livraison:
-                  </h4>
-                  <p style={{ 
-                    color: '#6b7280', 
-                    fontSize: '14px',
-                    margin: 0,
-                    lineHeight: '1.4'
-                  }}>
-                    {commande.adresseLivraison}
-                  </p>
-                </div>
-                
-                <div>
-                  <h4 style={{ 
-                    fontSize: '14px', 
-                    fontWeight: '600', 
-                    color: '#374151',
-                    marginBottom: '8px'
-                  }}>
-                    Contact client:
-                  </h4>
-                  <p style={{ 
-                    color: '#6b7280', 
-                    fontSize: '14px',
-                    margin: 0
-                  }}>
-                    {commande.telephone || 'Non renseigné'}
-                  </p>
-                </div>
+              <div style={{ textAlign: 'right' }}>
+                <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#2563eb', marginBottom: '4px' }}>
+                  {(() => {
+                    const total = commande.total || 0;
+                    if (total > 0) return total.toLocaleString();
+                    const calculatedTotal = commande.items?.reduce((sum, item) => {
+                      const prix = item.produit?.prix || 0;
+                      const quantite = item.quantite || 1;
+                      return sum + (prix * quantite);
+                    }, 0) || 0;
+                    return calculatedTotal.toLocaleString();
+                  })()} FCFA
+                </p>
               </div>
             </div>
-          ))}
-        </div>
-      )}
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
+              {commande.items?.slice(0, 4).map((item, idx) => (
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', minWidth: '200px' }}>
+                  <div style={{ position: 'relative' }}>
+                    <img
+                      src={item.produit?.images?.[0] || getProductImage(item.produit?.nom)}
+                      alt={item.produit?.nom || 'Produit'}
+                      style={{ width: '56px', height: '56px', objectFit: 'cover', borderRadius: '8px', border: '2px solid #f3f4f6' }}
+                      onError={(e) => {
+                        e.currentTarget.src = getProductImage(item.produit?.nom);
+                      }}
+                    />
+                    <span style={{ position: 'absolute', top: '-6px', right: '-6px', backgroundColor: '#2563eb', color: 'white', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'bold' }}>
+                      {item.quantite || 1}
+                    </span>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontWeight: '600', color: '#111827', marginBottom: '4px', fontSize: '13px', lineHeight: '1.2' }}>{item.produit?.nom || 'Produit'}</p>
+                    <p style={{ color: '#6b7280', fontSize: '11px' }}>{item.quantite || 1} article{(item.quantite || 1) > 1 ? 's' : ''}</p>
+                  </div>
+                </div>
+              ))}
+              {(commande.items?.length || 0) > 4 && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px', backgroundColor: '#f8fafc', borderRadius: '12px', border: '2px dashed #d1d5db', minWidth: '80px', minHeight: '80px' }}>
+                  <span style={{ fontSize: '16px', fontWeight: '700', color: '#6b7280' }}>+{(commande.items?.length || 0) - 4}</span>
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <label style={{ fontSize: '14px', fontWeight: '600', color: '#374151' }}>Changer statut:</label>
+                <select
+                  value={commande.statut}
+                  onChange={(e) => updateStatut(commande.id, e.target.value)}
+                  style={{ padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '14px', outline: 'none', backgroundColor: 'white' }}
+                >
+                  {statuts.map((s) => (
+                    <option key={s.value} value={s.value}>{s.label}</option>
+                  ))}
+                </select>
+              </div>
+              <button
+                onClick={() => setFactureModal({ isOpen: true, commandeId: commande.id })}
+                style={{
+                  padding: '10px 16px',
+                  backgroundColor: '#2563eb',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1d4ed8'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
+              >
+                <FileText size={16} />
+                Générer Facture
+              </button>
+            </div>
+          </div>
+        ))}
+
+        {filteredCommandes.length === 0 && (
+          <div style={{ backgroundColor: 'white', padding: '48px', borderRadius: '12px', textAlign: 'center', border: '1px solid #e5e7eb' }}>
+            <Package size={48} style={{ color: '#6b7280', margin: '0 auto 16px' }} />
+            <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#111827', marginBottom: '8px' }}>Aucune commande</h2>
+            <p style={{ color: '#6b7280' }}>{filter === 'TOUS' ? 'Aucune commande pour le moment' : `Aucune commande ${STATUS_LABELS[filter]?.toLowerCase()}`}</p>
+          </div>
+        )}
+      </div>
+      
+      <FactureModal 
+        isOpen={factureModal.isOpen}
+        onClose={() => setFactureModal({ isOpen: false, commandeId: '' })}
+        commandeId={factureModal.commandeId}
+      />
     </div>
   );
-};
-
-export default VendeurCommandes;
+}

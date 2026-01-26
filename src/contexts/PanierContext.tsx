@@ -1,20 +1,8 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import React, { useState, useEffect, type ReactNode } from 'react';
 import type { PanierItem } from '../types';
 import { clientService, publicService } from '../services/api';
 import { useAuthStore } from '../store';
-
-interface PanierContextType {
-  panierItems: PanierItem[];
-  total: number;
-  loading: boolean;
-  ajouterAuPanier: (produitId: string, quantite: number) => Promise<void>;
-  supprimerDuPanier: (itemId: string) => Promise<void>;
-  modifierQuantite: (itemId: string, nouvelleQuantite: number) => Promise<void>;
-  chargerPanier: () => Promise<void>;
-  viderPanier: () => Promise<void>;
-}
-
-const PanierContext = createContext<PanierContextType | undefined>(undefined);
+import { PanierContext, type PanierContextType } from './PanierContextDef';
 
 interface PanierProviderProps {
   children: ReactNode;
@@ -23,7 +11,7 @@ interface PanierProviderProps {
 // Stockage local temporaire du panier
 const PANIER_STORAGE_KEY = 'fasomarket_panier';
 
-export function PanierProvider({ children }: PanierProviderProps) {
+export default function PanierProvider({ children }: PanierProviderProps) {
   const [panierItems, setPanierItems] = useState<PanierItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -35,29 +23,39 @@ export function PanierProvider({ children }: PanierProviderProps) {
       const savedPanier = localStorage.getItem(PANIER_STORAGE_KEY);
       if (savedPanier) {
         const items = JSON.parse(savedPanier);
-        // S'assurer que chaque item a une boutique valide
-        const validItems = items.map((item: any) => ({
-          ...item,
-          produit: {
-            ...item.produit,
-            boutique: item.produit.boutique || {
-              id: '',
-              nom: 'Boutique inconnue',
-              description: '',
-              categorie: '',
-              adresse: 'Adresse non disponible',
-              livraison: false,
-              fraisLivraison: 0,
-              statut: 'ACTIVE'
-            }
-          }
-        }));
+        // Filtrer les items invalides et s'assurer que chaque item a une boutique valide
+        const validItems = items
+          .filter((item: any) => item && item.produit && item.produit.id)
+          .map((item: any) => ({
+            ...item,
+            produit: {
+              ...item.produit,
+              boutique: item.produit?.boutique || {
+                id: '',
+                nom: 'Boutique inconnue',
+                description: '',
+                categorie: '',
+                adresse: 'Adresse non disponible',
+                livraison: false,
+                fraisLivraison: 0,
+                statut: 'ACTIVE'
+              }
+            },
+            // Conserver les détails des variantes s'ils existent
+            couleurSelectionnee: item.couleurSelectionnee || item.variante?.couleur,
+            tailleSelectionnee: item.tailleSelectionnee || item.variante?.taille,
+            modeleSelectionne: item.modeleSelectionne || item.variante?.modele
+          }));
         setPanierItems(validItems);
         setTotal(validItems.reduce((sum: number, item: PanierItem) => 
           sum + ((item.produit?.prix || 0) * item.quantite), 0));
       }
     } catch (error) {
       console.error('Erreur chargement panier local:', error);
+      // En cas d'erreur, vider le panier corrompu
+      localStorage.removeItem(PANIER_STORAGE_KEY);
+      setPanierItems([]);
+      setTotal(0);
     }
   };
 
@@ -88,9 +86,34 @@ export function PanierProvider({ children }: PanierProviderProps) {
     try {
       const response = await clientService.getPanier();
       const items = response.data;
-      setPanierItems(items);
-      setTotal(items.reduce((sum: number, item: PanierItem) => 
-        sum + (item.produit.prix * item.quantite), 0));
+      
+      // Enrichir les items avec les détails des variantes
+      const enrichedItems = await Promise.all(items.map(async (item: any) => {
+        if (item.varianteId) {
+          try {
+            const variantesResponse = await publicService.getProduitVariantes(item.produit.id);
+            const variante = variantesResponse.data.find((v: any) => v.id === item.varianteId);
+            return {
+              ...item,
+              variante,
+              couleurSelectionnee: variante?.couleur,
+              tailleSelectionnee: variante?.taille,
+              modeleSelectionne: variante?.modele
+            };
+          } catch (error) {
+            console.log('Erreur chargement variante:', error);
+            return item;
+          }
+        }
+        return item;
+      }));
+      
+      setPanierItems(enrichedItems);
+      const totalPrice = enrichedItems.reduce((sum: number, item: PanierItem) => {
+        const prix = item.variante?.prixAjustement || item.produit.prix;
+        return sum + (prix * item.quantite);
+      }, 0);
+      setTotal(totalPrice);
     } catch (error: any) {
       // Utiliser le stockage local comme fallback
       console.log('Backend panier non disponible, utilisation du stockage local');
@@ -100,8 +123,19 @@ export function PanierProvider({ children }: PanierProviderProps) {
     }
   };
 
-  const ajouterAuPanier = async (produitId: string, quantite: number) => {
+  const ajouterAuPanier = async (produitId: string, quantite: number, varianteId?: string) => {
     try {
+      // Récupérer les détails de la variante si spécifiée
+      let variante = null;
+      if (varianteId) {
+        try {
+          const variantesResponse = await publicService.getProduitVariantes(produitId);
+          variante = variantesResponse.data.find((v: any) => v.id === varianteId);
+        } catch (error) {
+          console.log('Erreur chargement variante:', error);
+        }
+      }
+
       // Récupérer les détails du produit
       const produitResponse = await publicService.getProduit(produitId);
       const rawProduit = produitResponse.data as any;
@@ -129,29 +163,37 @@ export function PanierProvider({ children }: PanierProviderProps) {
         }
       };
 
-      // Vérifier si le produit existe déjà dans le panier (avec vérification de sécurité)
-      const existingItemIndex = panierItems.findIndex(item => 
-        item && item.produit && item.produit.id === produitId
-      );
+      // Vérifier si le produit avec cette variante existe déjà dans le panier
+      const existingItemIndex = Array.isArray(panierItems) ? panierItems.findIndex(item => 
+        item && item.produit && item.produit.id === produitId && item.varianteId === varianteId
+      ) : -1;
       let newItems: PanierItem[];
 
       if (existingItemIndex >= 0) {
         // Mettre à jour la quantité
-        newItems = [...panierItems];
+        newItems = [...(Array.isArray(panierItems) ? panierItems : [])];
         newItems[existingItemIndex].quantite += quantite;
       } else {
         // Ajouter un nouveau produit
         const newItem: PanierItem = {
-          id: Date.now().toString(), // ID temporaire
+          id: Date.now().toString(),
           produit: produit as any,
-          quantite
+          quantite,
+          varianteId,
+          variante: variante || undefined,
+          couleurSelectionnee: variante?.couleur,
+          tailleSelectionnee: variante?.taille,
+          modeleSelectionne: variante?.modele
         };
-        newItems = [...panierItems, newItem];
+        newItems = [...(Array.isArray(panierItems) ? panierItems : []), newItem];
       }
 
       setPanierItems(newItems);
-      setTotal(newItems.reduce((sum: number, item: PanierItem) => 
-        sum + (item.produit?.prix || 0) * item.quantite, 0));
+      const totalPrice = newItems.reduce((sum: number, item: PanierItem) => {
+        const prix = item.variante?.prixAjustement || item.produit?.prix || 0;
+        return sum + (prix * item.quantite);
+      }, 0);
+      setTotal(totalPrice);
       sauvegarderPanierLocal(newItems);
 
       // Essayer de synchroniser avec le backend si connecté
@@ -159,9 +201,10 @@ export function PanierProvider({ children }: PanierProviderProps) {
         const user = useAuthStore.getState().user;
         if (user && user.role === 'CLIENT') {
           try {
-            await clientService.ajouterAuPanier(produitId, quantite);
+            await clientService.ajouterAuPanier(produitId, quantite, varianteId);
+            console.log('Synchronisation backend réussie');
           } catch (error) {
-            console.log('Synchronisation backend échouée, utilisation du stockage local');
+            console.error('Synchronisation backend échouée:', error);
           }
         }
       }
@@ -192,6 +235,31 @@ export function PanierProvider({ children }: PanierProviderProps) {
       }
     } catch (error) {
       console.error('Erreur lors de la suppression:', error);
+    }
+  };
+
+  const synchroniserAvecBackend = async () => {
+    if (!isAuthenticated) return false;
+    
+    const user = useAuthStore.getState().user;
+    if (!user || user.role !== 'CLIENT') return false;
+
+    try {
+      // Vider d'abord le panier backend
+      await clientService.viderPanier();
+      
+      // Ajouter tous les produits du panier local au backend
+      for (const item of panierItems) {
+        if (item.produit?.id) {
+          await clientService.ajouterAuPanier(item.produit.id, item.quantite, item.varianteId);
+        }
+      }
+      
+      console.log('Synchronisation backend réussie');
+      return true;
+    } catch (error) {
+      console.error('Erreur synchronisation backend:', error);
+      return false;
     }
   };
 
@@ -255,17 +323,10 @@ export function PanierProvider({ children }: PanierProviderProps) {
       supprimerDuPanier,
       modifierQuantite,
       chargerPanier,
-      viderPanier
+      viderPanier,
+      synchroniserAvecBackend
     }}>
       {children}
     </PanierContext.Provider>
   );
-}
-
-export function usePanier(): PanierContextType {
-  const context = useContext(PanierContext);
-  if (!context) {
-    throw new Error('usePanier must be used within a PanierProvider');
-  }
-  return context;
 }

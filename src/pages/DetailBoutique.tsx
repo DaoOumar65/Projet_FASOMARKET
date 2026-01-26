@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { Store, MapPin, Phone, Mail, Truck, ArrowLeft, Package, Grid } from 'lucide-react';
 import { publicService } from '../services/api';
 import AdresseMapSimple from '../components/AdresseMapSimple';
+import BoutiqueAvatar from '../components/BoutiqueAvatar';
 import type { Boutique, Produit } from '../types';
 
 export default function DetailBoutique() {
@@ -23,6 +24,8 @@ export default function DetailBoutique() {
     try {
       const response = await publicService.getBoutique(id!);
       console.log('Détail boutique:', response.data);
+      console.log('bannerUrl:', response.data.bannerUrl);
+      console.log('logoUrl:', response.data.logoUrl);
       
       // Mapper les données avec fallbacks
       const boutiqueData = {
@@ -32,7 +35,9 @@ export default function DetailBoutique() {
         telephone: response.data.telephone || response.data.phone || '',
         categorie: response.data.categorie || response.data.category || 'Mode',
         livraison: response.data.livraison || response.data.delivery || false,
-        fraisLivraison: response.data.fraisLivraison || response.data.deliveryFee || 0
+        fraisLivraison: response.data.fraisLivraison || response.data.deliveryFee || 0,
+        logoUrl: response.data.logoUrl || null,
+        bannerUrl: response.data.bannerUrl || null
       };
       
       setBoutique(boutiqueData);
@@ -128,8 +133,12 @@ export default function DetailBoutique() {
     <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc' }}>
       {/* En-tête de la boutique */}
       <div style={{
-        background: 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)',
-        color: 'white'
+        background: (() => {
+          const bannerImage = boutique.bannerUrl || boutique.logoUrl || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&h=400&fit=crop';
+          return `linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url(${bannerImage}) center/cover`;
+        })(),
+        color: 'white',
+        minHeight: '400px'
       }}>
         <div style={{
           maxWidth: '1200px',
@@ -167,17 +176,11 @@ export default function DetailBoutique() {
               gap: '24px',
               flexWrap: 'wrap'
             }}>
-              <div style={{
-                width: '96px',
-                height: '96px',
-                backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                borderRadius: '16px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                <Store size={48} style={{ color: 'white' }} />
-              </div>
+              <BoutiqueAvatar 
+                image={boutique.logoUrl} 
+                nom={boutique.nom} 
+                size={96} 
+              />
               
               <div style={{ flex: 1, minWidth: '300px' }}>
                 <h1 style={{

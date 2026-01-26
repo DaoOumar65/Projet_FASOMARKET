@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Search, ShoppingCart, User, Menu, X, LogOut, Settings, Package, Heart, MapPin, ShoppingBag } from 'lucide-react';
 import { useAuthStore } from '../store';
-import { usePanier } from '../contexts/PanierContext';
+import { usePanier } from '../hooks/usePanier';
 import NotificationDropdown from './NotificationDropdown';
+import ClientNotificationDropdown from './ClientNotificationDropdown';
 
 const decodeHTML = (text: string) => {
   const textarea = document.createElement('textarea');
@@ -20,6 +21,7 @@ export default function Header() {
   const navigate = useNavigate();
 
   const getTotalItems = () => {
+    if (!Array.isArray(panierItems)) return 0;
     return panierItems.reduce((total, item) => total + item.quantite, 0);
   };
 
@@ -58,9 +60,9 @@ export default function Header() {
       zIndex: 50 
     }}>
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '64px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', height: '64px' }}>
           {/* Logo */}
-          <Link to="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', marginRight: '48px' }}>
+          <Link to="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', marginRight: '32px', flexShrink: 0 }}>
             <div style={{ 
               width: '42px', 
               height: '42px', 
@@ -87,7 +89,7 @@ export default function Header() {
           </Link>
 
           {/* Navigation desktop */}
-          <nav style={{ display: 'flex', alignItems: 'center', gap: '32px', flex: 1 }}>
+          <nav style={{ display: 'flex', alignItems: 'center', gap: '24px', flexShrink: 0 }}>
             <Link 
               to="/produits" 
               style={{ 
@@ -133,12 +135,9 @@ export default function Header() {
           </nav>
 
           {/* Actions utilisateur */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginLeft: 'auto', flexShrink: 0 }}>
             {isAuthenticated ? (
               <>
-                {/* Notifications */}
-                <NotificationDropdown />
-
                 {/* Panier (pour les clients) */}
                 {user?.role === 'CLIENT' && (
                   <Link 
@@ -176,7 +175,10 @@ export default function Header() {
                   </Link>
                 )}
 
-                {/* Menu utilisateur */}
+                {/* Notifications */}
+                {user?.role === 'CLIENT' ? <ClientNotificationDropdown /> : <NotificationDropdown />}
+
+                {/* Menu utilisateur avec rôle */}
                 <div style={{ position: 'relative' }}>
                   <button
                     onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
@@ -195,16 +197,23 @@ export default function Header() {
                       color: '#374151'
                     }}
                     onMouseEnter={(e) => {
-                      e.target.style.backgroundColor = '#f1f5f9';
-                      e.target.style.borderColor = '#cbd5e1';
+                      e.currentTarget.style.backgroundColor = '#f1f5f9';
+                      e.currentTarget.style.borderColor = '#cbd5e1';
                     }}
                     onMouseLeave={(e) => {
-                      e.target.style.backgroundColor = '#f8fafc';
-                      e.target.style.borderColor = '#e2e8f0';
+                      e.currentTarget.style.backgroundColor = '#f8fafc';
+                      e.currentTarget.style.borderColor = '#e2e8f0';
                     }}
                   >
                     <User size={18} />
-                    <span>{user?.nomComplet ? decodeHTML(user.nomComplet) : 'Utilisateur'}</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                      <span style={{ fontSize: '14px', fontWeight: '600' }}>
+                        {user?.nomComplet ? decodeHTML(user.nomComplet) : 'Utilisateur'}
+                      </span>
+                      <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: '400' }}>
+                        {user?.role === 'ADMIN' ? 'Administrateur' : user?.role === 'VENDOR' ? 'Vendeur' : 'Client'}
+                      </span>
+                    </div>
                   </button>
 
                   {/* Dropdown menu */}
