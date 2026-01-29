@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ShoppingCart, Trash2, Plus, Minus, ArrowRight } from 'lucide-react';
+import Badge from '../components/Badge';
 import toast from 'react-hot-toast';
 import { usePanier } from '../hooks/usePanier';
 
@@ -101,41 +102,33 @@ const Panier: React.FC = () => {
                       {item.produit?.nom || 'Produit'}
                     </h3>
                     
-                    {/* Affichage des variantes */}
+                    {/* Affichage des variantes harmonisé */}
                     {(item.variante || item.couleurSelectionnee || item.tailleSelectionnee || item.modeleSelectionne) && (
-                      <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
                         {(item.variante?.couleur || item.couleurSelectionnee) && (
-                          <span style={{
-                            padding: '2px 8px',
-                            backgroundColor: '#eff6ff',
-                            color: '#2563eb',
-                            borderRadius: '4px',
-                            fontSize: '12px'
-                          }}>
+                          <Badge variant="couleur" size="sm">
                             {item.variante?.couleur || item.couleurSelectionnee}
-                          </span>
+                          </Badge>
                         )}
                         {(item.variante?.taille || item.tailleSelectionnee) && (
-                          <span style={{
-                            padding: '2px 8px',
-                            backgroundColor: '#f0fdf4',
-                            color: '#16a34a',
-                            borderRadius: '4px',
-                            fontSize: '12px'
-                          }}>
+                          <Badge variant="taille" size="sm">
                             {item.variante?.taille || item.tailleSelectionnee}
-                          </span>
+                          </Badge>
                         )}
                         {(item.variante?.modele || item.modeleSelectionne) && (
-                          <span style={{
-                            padding: '2px 8px',
-                            backgroundColor: '#fef3c7',
-                            color: '#d97706',
-                            borderRadius: '4px',
-                            fontSize: '12px'
-                          }}>
+                          <Badge variant="modele" size="sm">
                             {item.variante?.modele || item.modeleSelectionne}
-                          </span>
+                          </Badge>
+                        )}
+                        {item.variante?.capacite && (
+                          <Badge variant="capacite" size="sm">
+                            {item.variante.capacite}
+                          </Badge>
+                        )}
+                        {item.variante?.puissance && (
+                          <Badge variant="puissance" size="sm">
+                            {item.variante.puissance}
+                          </Badge>
                         )}
                       </div>
                     )}
@@ -144,12 +137,18 @@ const Panier: React.FC = () => {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <span style={{ fontSize: '14px', color: '#6b7280' }}>Quantité: {item.quantite}</span>
                         <span style={{ fontSize: '14px', color: '#6b7280' }}>
-                          Prix unitaire: {(item.variante?.prixAjustement || item.produit?.prix || 0).toLocaleString()} FCFA
+                          Prix unitaire: {(
+                            item.prixUnitaire || 
+                            (item.produit?.prix || 0) + (item.variante?.prixAjustement || 0)
+                          ).toLocaleString()} FCFA
                         </span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <span style={{ fontSize: '16px', fontWeight: '600', color: '#2563eb' }}>
-                          {((item.variante?.prixAjustement || item.produit?.prix || 0) * item.quantite).toLocaleString()} FCFA
+                          {(
+                            item.prixTotal || 
+                            ((item.produit?.prix || 0) + (item.variante?.prixAjustement || 0)) * item.quantite
+                          ).toLocaleString()} FCFA
                         </span>
                         <button
                           onClick={() => handleSupprimerItem(item.id)}

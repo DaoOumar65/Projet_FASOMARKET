@@ -1,7 +1,10 @@
 import { Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import PanierProvider from './contexts/PanierContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { useAuthInit } from './hooks/useAuthInit';
+import './styles/theme.css';
+import './styles/variantes.css';
 import Header from './components/Header';
 import VendorLayout from './components/VendorLayout';
 import AdminLayout from './components/AdminLayout';
@@ -70,8 +73,9 @@ function App() {
   useAuthInit();
   
   return (
-    <PanierProvider>
-      <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc' }}>
+    <ThemeProvider>
+      <PanierProvider>
+        <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg-secondary)' }}>
         <Routes>
           {/* Routes publiques avec Header */}
           <Route path="/" element={<><Header /><Accueil /></>} />
@@ -276,6 +280,7 @@ function App() {
         />
       </div>
     </PanierProvider>
+    </ThemeProvider>
   );
 }
 

@@ -18,6 +18,7 @@ import { useAuthStore } from '../store';
 import { useNotificationStore } from '../store/notifications';
 import { adminService } from '../services/api';
 import NotificationDropdown from './NotificationDropdown';
+import ThemeToggle from './ThemeToggle';
 
 const sidebarItems = [
   { icon: BarChart3, label: 'Dashboard', path: '/admin/dashboard' },
@@ -304,6 +305,7 @@ export default function AdminLayout() {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginLeft: 'auto' }}>
             <NotificationDropdown />
+            <ThemeToggle />
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
               <div style={{

@@ -1,0 +1,274 @@
+/* Gestion Stock Vendeur */
+.gestion-stock-vendeur {
+  background: var(--card-background);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: var(--shadow-light);
+  margin-bottom: 24px;
+}
+
+.gestion-stock-vendeur h3 {
+  margin: 0 0 20px 0;
+  color: var(--text-primary);
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+
+/* Résumé Stock */
+.stock-resume {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stock-card {
+  background: var(--background-secondary);
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+  border: 2px solid transparent;
+  transition: all 0.3s ease;
+}
+
+.stock-card:hover {
+  border-color: var(--primary-color);
+  transform: translateY(-2px);
+}
+
+.stock-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.stock-value {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.stock-value.global {
+  color: var(--primary-color);
+}
+
+.stock-value.reparti {
+  color: #2563eb;
+}
+
+.stock-value.disponible {
+  color: #059669;
+}
+
+.stock-value.disponible.negatif {
+  color: #dc2626;
+}
+
+/* Alertes */
+.alert {
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-weight: 500;
+}
+
+.alert-danger {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+/* Variantes Stock */
+.variantes-stock h4 {
+  margin: 0 0 16px 0;
+  color: var(--text-primary);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.no-variants {
+  text-align: center;
+  padding: 32px;
+  color: var(--text-secondary);
+  background: var(--background-secondary);
+  border-radius: 8px;
+  border: 2px dashed var(--border-color);
+}
+
+.no-variants p {
+  margin: 8px 0;
+}
+
+.no-variants strong {
+  color: var(--primary-color);
+  font-size: 1.2rem;
+}
+
+/* Liste Variantes */
+.variantes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.variante-stock-item {
+  background: var(--background-secondary);
+  border-radius: 8px;
+  padding: 16px;
+  border: 1px solid var(--border-color);
+  transition: all 0.3s ease;
+}
+
+.variante-stock-item:hover {
+  border-color: var(--primary-color);
+  box-shadow: var(--shadow-light);
+}
+
+.variante-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.variante-details {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Contrôles Stock */
+.stock-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stock-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stock-number {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 40px;
+  text-align: center;
+}
+
+.stock-number.epuise {
+  color: #dc2626;
+}
+
+.btn-edit-stock {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.btn-edit-stock:hover {
+  background: var(--background-hover);
+}
+
+/* Édition Stock */
+.stock-edit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stock-input {
+  width: 80px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--input-background);
+  color: var(--text-primary);
+  font-size: 1rem;
+  text-align: center;
+}
+
+.stock-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px var(--primary-color-light);
+}
+
+.btn-confirm, .btn-cancel {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+}
+
+.btn-confirm {
+  color: #059669;
+}
+
+.btn-confirm:hover {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.btn-cancel {
+  color: #dc2626;
+}
+
+.btn-cancel:hover {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+/* Status Variante */
+.variante-status {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Loading */
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .stock-resume {
+    grid-template-columns: 1fr;
+  }
+  
+  .variante-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .stock-controls {
+    align-self: flex-end;
+  }
+}
+
+@media (max-width: 480px) {
+  .gestion-stock-vendeur {
+    padding: 16px;
+  }
+  
+  .variante-details {
+    justify-content: flex-start;
+  }
+  
+  .stock-edit {
+    flex-wrap: wrap;
+  }
+}

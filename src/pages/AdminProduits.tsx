@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Package, Search, Eye, Ban, CheckCircle, Trash2 } from 'lucide-react';
+import { Package, Search, Ban, CheckCircle, Trash2 } from 'lucide-react';
 import { adminService } from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -9,7 +9,7 @@ interface Produit {
   description: string;
   prix: number;
   stock: number;
-  status: 'ACTIVE' | 'HIDDEN';
+  status: 'ACTIVE' | 'HIDDEN' | 'BLOCKED_BY_ADMIN';
   images?: string[];
   boutique: {
     nom: string;
@@ -35,6 +35,9 @@ export default function AdminProduits() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [showBlockModal, setShowBlockModal] = useState<string | null>(null);
+  const [blockComment, setBlockComment] = useState('');
 
   useEffect(() => {
     fetchProduits();
@@ -42,7 +45,8 @@ export default function AdminProduits() {
 
   const fetchProduits = async () => {
     try {
-      const response = await adminService.getProduits();
+      // Récupérer TOUS les produits (y compris masqués et bloqués)
+      const response = await adminService.getProduits(0, 100);
       console.log('Produits admin chargés:', response.data);
       
       const data = response.data.produits || response.data.content || response.data || [];
@@ -149,6 +153,10 @@ export default function AdminProduits() {
     }
   };
 
+
+
+
+
   const supprimerProduit = async (produitId: string) => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer ce produit ?')) return;
     
@@ -171,9 +179,13 @@ export default function AdminProduits() {
     const boutiqueName = produit.boutique?.nom || '';
     const vendeurName = produit.boutique?.vendeur?.nomComplet || '';
     
-    return nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchesSearch = nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
            boutiqueName.toLowerCase().includes(searchTerm.toLowerCase()) ||
            vendeurName.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesStatus = statusFilter === 'ALL' || produit.status === statusFilter;
+    
+    return matchesSearch && matchesStatus;
   }) : [];
 
   const getStatutBadge = (status: string) => {
@@ -208,24 +220,51 @@ export default function AdminProduits() {
         </div>
       </div>
 
-      {/* Recherche */}
+      {/* Recherche et filtres */}
       <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '12px', marginBottom: '24px', border: '1px solid #e5e7eb' }}>
-        <div style={{ position: 'relative', maxWidth: '400px' }}>
-          <Search size={20} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#6b7280' }} />
-          <input
-            type="text"
-            placeholder="Rechercher par nom, boutique ou vendeur..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+        <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+          <div style={{ position: 'relative', flex: 1, maxWidth: '400px' }}>
+            <Search size={20} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#6b7280' }} />
+            <input
+              type="text"
+              placeholder="Rechercher par nom, boutique ou vendeur..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '12px 12px 12px 40px',
+                border: '1px solid #e5e7eb',
+                borderRadius: '8px',
+                fontSize: '14px',
+                outline: 'none'
+              }}
+            />
+          </div>
+          
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
             style={{
-              width: '100%',
-              padding: '12px 12px 12px 40px',
+              padding: '12px',
               border: '1px solid #e5e7eb',
               borderRadius: '8px',
               fontSize: '14px',
-              outline: 'none'
+              backgroundColor: 'white',
+              minWidth: '150px'
             }}
-          />
+          >
+            <option value="ALL">Tous les statuts</option>
+            <option value="ACTIVE">Actifs</option>
+            <option value="HIDDEN">Masqués</option>
+            <option value="BLOCKED_BY_ADMIN">Bloqués</option>
+          </select>
+        </div>
+        
+        <div style={{ marginTop: '12px', fontSize: '14px', color: '#6b7280' }}>
+          {filteredProduits.length} produit(s) • 
+          {produits.filter(p => p.status === 'ACTIVE').length} actifs • 
+          {produits.filter(p => p.status === 'HIDDEN').length} masqués • 
+          {produits.filter(p => p.status === 'BLOCKED_BY_ADMIN').length} bloqués
         </div>
       </div>
 

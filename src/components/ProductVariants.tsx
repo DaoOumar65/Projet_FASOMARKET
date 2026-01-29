@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { variantesService } from '../services/variantes';
+import { Plus, Minus } from 'lucide-react';
 
 interface ProduitVariante {
   id: string;
@@ -14,240 +14,376 @@ interface ProduitVariante {
 
 interface ProductVariantsProps {
   produitId: string;
+  variantes: ProduitVariante[];
   onVariantChange: (variante: ProduitVariante | null, quantite: number) => void;
 }
 
-export default function ProductVariants({ produitId, onVariantChange }: ProductVariantsProps) {
-  const [variantes, setVariantes] = useState<ProduitVariante[]>([]);
+export default function ProductVariants({ produitId, variantes, onVariantChange }: ProductVariantsProps) {
   const [selectedVariant, setSelectedVariant] = useState<ProduitVariante | null>(null);
   const [quantite, setQuantite] = useState(1);
-  const [loading, setLoading] = useState(true);
+  const [selectedOptions, setSelectedOptions] = useState<{
+    couleur?: string;
+    taille?: string;
+    modele?: string;
+  }>({});
 
-  useEffect(() => {
-    chargerVariantes();
-  }, [produitId]);
-
-  const chargerVariantes = async () => {
-    try {
-      const data = await variantesService.getVariantesProduit(produitId);
-      setVariantes(data || []);
-      if (data && data.length > 0) {
-        setSelectedVariant(data[0]);
-        onVariantChange(data[0], quantite);
-      }
-    } catch (error) {
-      console.error('Erreur chargement variantes:', error);
-      setVariantes([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVarianteChange = (variante: ProduitVariante) => {
-    setSelectedVariant(variante);
-    onVariantChange(variante, quantite);
-  };
-
-  if (loading) return <div style={{ padding: '16px', color: '#6b7280' }}>Chargement des variantes...</div>;
-  if (variantes.length === 0) return null;
-
+  // Obtenir les valeurs uniques pour chaque attribut
   const getUniqueValues = (field: keyof ProduitVariante): string[] => {
     return [...new Set(variantes.map(v => v[field]).filter(Boolean) as string[])];
   };
 
-  const selectByCouleur = (couleur: string) => {
-    const variante = variantes.find(v => v.couleur === couleur);
-    if (variante) handleVarianteChange(variante);
-  };
-
-  const selectByTaille = (taille: string) => {
-    const variante = variantes.find(v => v.taille === taille);
-    if (variante) handleVarianteChange(variante);
-  };
-
-  const selectByModele = (modele: string) => {
-    const variante = variantes.find(v => v.modele === modele);
-    if (variante) handleVarianteChange(variante);
-  };
-
-  // Grouper les variantes par attributs
   const couleurs = getUniqueValues('couleur');
   const tailles = getUniqueValues('taille');
   const modeles = getUniqueValues('modele');
 
-  const [selectedCouleur, setSelectedCouleur] = useState<string>('');
-  const [selectedTaille, setSelectedTaille] = useState<string>('');
-  const [selectedModele, setSelectedModele] = useState<string>('');
+  // Trouver la variante correspondante aux options sélectionnées
+  const findMatchingVariant = (options: typeof selectedOptions): ProduitVariante | null => {
+    return variantes.find(v => 
+      (!options.couleur || v.couleur === options.couleur) &&
+      (!options.taille || v.taille === options.taille) &&
+      (!options.modele || v.modele === options.modele)
+    ) || null;
+  };
 
-  useEffect(() => {
-    // Trouver la variante correspondante aux sélections
-    const variante = variantes.find(v => 
-      (!selectedCouleur || v.couleur === selectedCouleur) &&
-      (!selectedTaille || v.taille === selectedTaille) &&
-      (!selectedModele || v.modele === selectedModele)
-    );
+  // Gérer la sélection d'une option
+  const handleOptionSelect = (type: 'couleur' | 'taille' | 'modele', value: string) => {
+    const newOptions = { ...selectedOptions, [type]: value };
+    setSelectedOptions(newOptions);
     
-    setSelectedVariant(variante || null);
-    onVariantChange(variante || null, quantite);
-  }, [selectedCouleur, selectedTaille, selectedModele, quantite, variantes, onVariantChange]);
+    const matchingVariant = findMatchingVariant(newOptions);
+    setSelectedVariant(matchingVariant);
+    
+    // Réinitialiser la quantité si nouvelle variante
+    if (matchingVariant && matchingVariant.id !== selectedVariant?.id) {
+      setQuantite(1);
+      onVariantChange(matchingVariant, 1);
+    } else {
+      onVariantChange(matchingVariant, quantite);
+    }
+  };
+
+  // Gérer le changement de quantité
+  const handleQuantiteChange = (newQuantite: number) => {
+    const maxStock = selectedVariant?.stock || 0;
+    const validQuantite = Math.max(1, Math.min(newQuantite, maxStock));
+    setQuantite(validQuantite);
+    onVariantChange(selectedVariant, validQuantite);
+  };
+
+  // Initialiser avec la première variante disponible
+  useEffect(() => {
+    if (variantes.length > 0 && !selectedVariant) {
+      const firstVariant = variantes[0];
+      setSelectedVariant(firstVariant);
+      setSelectedOptions({
+        couleur: firstVariant.couleur,
+        taille: firstVariant.taille,
+        modele: firstVariant.modele
+      });
+      onVariantChange(firstVariant, quantite);
+    }
+  }, [variantes]);
+
+  if (variantes.length === 0) return null;
 
   return (
     <div style={{ marginBottom: '24px' }}>
-      <div style={{ padding: '10px', backgroundColor: '#e3f2fd', marginBottom: '16px', fontSize: '12px' }}>
-        ProductVariants: {variantes.length} variantes reçues<br/>
-        Couleurs: {couleurs.join(', ') || 'Aucune'}<br/>
-        Tailles: {tailles.join(', ') || 'Aucune'}<br/>
-        Modèles: {modeles.join(', ') || 'Aucun'}
-      </div>
       {/* Couleurs */}
       {couleurs.length > 0 && (
-        <div style={{ marginBottom: '16px' }}>
-          <label style={{ display: 'block', fontWeight: '600', marginBottom: '8px' }}>
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{ 
+            display: 'block', 
+            fontSize: '16px', 
+            fontWeight: '600', 
+            color: '#111827',
+            marginBottom: '12px' 
+          }}>
             Couleur
           </label>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {couleurs.map(couleur => (
-              <button
-                key={couleur}
-                onClick={() => setSelectedCouleur(couleur)}
-                style={{
-                  padding: '8px 16px',
-                  border: selectedCouleur === couleur ? '2px solid #2563eb' : '1px solid #e5e7eb',
-                  borderRadius: '8px',
-                  backgroundColor: selectedCouleur === couleur ? '#eff6ff' : 'white',
-                  color: selectedCouleur === couleur ? '#2563eb' : '#374151',
-                  cursor: 'pointer',
-                  fontSize: '14px'
-                }}
-              >
-                {couleur}
-              </button>
-            ))}
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            {couleurs.map(couleur => {
+              const isSelected = selectedOptions.couleur === couleur;
+              const isAvailable = variantes.some(v => 
+                v.couleur === couleur && 
+                v.stock > 0 &&
+                (!selectedOptions.taille || v.taille === selectedOptions.taille) &&
+                (!selectedOptions.modele || v.modele === selectedOptions.modele)
+              );
+              
+              return (
+                <button
+                  key={couleur}
+                  onClick={() => handleOptionSelect('couleur', couleur)}
+                  disabled={!isAvailable}
+                  style={{
+                    padding: '12px 20px',
+                    border: isSelected ? '2px solid #2563eb' : '2px solid #e5e7eb',
+                    borderRadius: '12px',
+                    backgroundColor: isSelected ? '#eff6ff' : 'white',
+                    color: isSelected ? '#2563eb' : isAvailable ? '#374151' : '#9ca3af',
+                    cursor: isAvailable ? 'pointer' : 'not-allowed',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    transition: 'all 0.2s ease',
+                    opacity: isAvailable ? 1 : 0.5
+                  }}
+                >
+                  {couleur}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
 
       {/* Tailles */}
       {tailles.length > 0 && (
-        <div style={{ marginBottom: '16px' }}>
-          <label style={{ display: 'block', fontWeight: '600', marginBottom: '8px' }}>
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{ 
+            display: 'block', 
+            fontSize: '16px', 
+            fontWeight: '600', 
+            color: '#111827',
+            marginBottom: '12px' 
+          }}>
             Taille
           </label>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {tailles.map(taille => (
-              <button
-                key={taille}
-                onClick={() => setSelectedTaille(taille)}
-                style={{
-                  padding: '8px 16px',
-                  border: selectedTaille === taille ? '2px solid #2563eb' : '1px solid #e5e7eb',
-                  borderRadius: '8px',
-                  backgroundColor: selectedTaille === taille ? '#eff6ff' : 'white',
-                  color: selectedTaille === taille ? '#2563eb' : '#374151',
-                  cursor: 'pointer',
-                  fontSize: '14px'
-                }}
-              >
-                {taille}
-              </button>
-            ))}
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            {tailles.map(taille => {
+              const isSelected = selectedOptions.taille === taille;
+              const isAvailable = variantes.some(v => 
+                v.taille === taille && 
+                v.stock > 0 &&
+                (!selectedOptions.couleur || v.couleur === selectedOptions.couleur) &&
+                (!selectedOptions.modele || v.modele === selectedOptions.modele)
+              );
+              
+              return (
+                <button
+                  key={taille}
+                  onClick={() => handleOptionSelect('taille', taille)}
+                  disabled={!isAvailable}
+                  style={{
+                    padding: '12px 20px',
+                    border: isSelected ? '2px solid #2563eb' : '2px solid #e5e7eb',
+                    borderRadius: '12px',
+                    backgroundColor: isSelected ? '#eff6ff' : 'white',
+                    color: isSelected ? '#2563eb' : isAvailable ? '#374151' : '#9ca3af',
+                    cursor: isAvailable ? 'pointer' : 'not-allowed',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    transition: 'all 0.2s ease',
+                    opacity: isAvailable ? 1 : 0.5
+                  }}
+                >
+                  {taille}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
 
       {/* Modèles */}
       {modeles.length > 0 && (
-        <div style={{ marginBottom: '16px' }}>
-          <label style={{ display: 'block', fontWeight: '600', marginBottom: '8px' }}>
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{ 
+            display: 'block', 
+            fontSize: '16px', 
+            fontWeight: '600', 
+            color: '#111827',
+            marginBottom: '12px' 
+          }}>
             Modèle
           </label>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {modeles.map(modele => (
-              <button
-                key={modele}
-                onClick={() => setSelectedModele(modele)}
-                style={{
-                  padding: '8px 16px',
-                  border: selectedModele === modele ? '2px solid #2563eb' : '1px solid #e5e7eb',
-                  borderRadius: '8px',
-                  backgroundColor: selectedModele === modele ? '#eff6ff' : 'white',
-                  color: selectedModele === modele ? '#2563eb' : '#374151',
-                  cursor: 'pointer',
-                  fontSize: '14px'
-                }}
-              >
-                {modele}
-              </button>
-            ))}
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            {modeles.map(modele => {
+              const isSelected = selectedOptions.modele === modele;
+              const isAvailable = variantes.some(v => 
+                v.modele === modele && 
+                v.stock > 0 &&
+                (!selectedOptions.couleur || v.couleur === selectedOptions.couleur) &&
+                (!selectedOptions.taille || v.taille === selectedOptions.taille)
+              );
+              
+              return (
+                <button
+                  key={modele}
+                  onClick={() => handleOptionSelect('modele', modele)}
+                  disabled={!isAvailable}
+                  style={{
+                    padding: '12px 20px',
+                    border: isSelected ? '2px solid #2563eb' : '2px solid #e5e7eb',
+                    borderRadius: '12px',
+                    backgroundColor: isSelected ? '#eff6ff' : 'white',
+                    color: isSelected ? '#2563eb' : isAvailable ? '#374151' : '#9ca3af',
+                    cursor: isAvailable ? 'pointer' : 'not-allowed',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    transition: 'all 0.2s ease',
+                    opacity: isAvailable ? 1 : 0.5
+                  }}
+                >
+                  {modele}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
 
       {/* Quantité */}
-      <div style={{ marginBottom: '16px' }}>
-        <label style={{ display: 'block', fontWeight: '600', marginBottom: '8px' }}>
-          Quantité
-        </label>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <button
-            onClick={() => setQuantite(Math.max(1, quantite - 1))}
-            style={{
-              width: '40px',
-              height: '40px',
-              border: '1px solid #e5e7eb',
-              borderRadius: '8px',
-              backgroundColor: 'white',
-              cursor: 'pointer',
-              fontSize: '18px'
-            }}
-          >
-            -
-          </button>
-          <span style={{ 
-            minWidth: '40px', 
-            textAlign: 'center', 
+      {selectedVariant && (
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{ 
+            display: 'block', 
             fontSize: '16px', 
-            fontWeight: '600' 
+            fontWeight: '600', 
+            color: '#111827',
+            marginBottom: '12px' 
           }}>
-            {quantite}
-          </span>
-          <button
-            onClick={() => setQuantite(quantite + 1)}
-            disabled={selectedVariant && quantite >= selectedVariant.stock}
-            style={{
-              width: '40px',
-              height: '40px',
-              border: '1px solid #e5e7eb',
-              borderRadius: '8px',
-              backgroundColor: 'white',
-              cursor: 'pointer',
-              fontSize: '18px',
-              opacity: selectedVariant && quantite >= selectedVariant.stock ? 0.5 : 1
-            }}
-          >
-            +
-          </button>
-        </div>
-        {selectedVariant && (
-          <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
-            Stock disponible: {selectedVariant.stock}
+            Quantité
+          </label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <button
+              onClick={() => handleQuantiteChange(quantite - 1)}
+              disabled={quantite <= 1}
+              style={{
+                width: '44px',
+                height: '44px',
+                border: '2px solid #e5e7eb',
+                borderRadius: '12px',
+                backgroundColor: 'white',
+                cursor: quantite <= 1 ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: quantite <= 1 ? 0.5 : 1,
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <Minus size={18} color={quantite <= 1 ? '#9ca3af' : '#374151'} />
+            </button>
+            
+            <span style={{ 
+              minWidth: '60px', 
+              textAlign: 'center', 
+              fontSize: '18px', 
+              fontWeight: '600',
+              color: '#111827'
+            }}>
+              {quantite}
+            </span>
+            
+            <button
+              onClick={() => handleQuantiteChange(quantite + 1)}
+              disabled={quantite >= selectedVariant.stock}
+              style={{
+                width: '44px',
+                height: '44px',
+                border: '2px solid #e5e7eb',
+                borderRadius: '12px',
+                backgroundColor: 'white',
+                cursor: quantite >= selectedVariant.stock ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: quantite >= selectedVariant.stock ? 0.5 : 1,
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <Plus size={18} color={quantite >= selectedVariant.stock ? '#9ca3af' : '#374151'} />
+            </button>
+          </div>
+          
+          <p style={{ 
+            fontSize: '14px', 
+            color: selectedVariant.stock > 5 ? '#10b981' : selectedVariant.stock > 0 ? '#f59e0b' : '#ef4444', 
+            marginTop: '8px',
+            fontWeight: '500'
+          }}>
+            {selectedVariant.stock > 5 
+              ? `${selectedVariant.stock} en stock` 
+              : selectedVariant.stock > 0 
+                ? `Plus que ${selectedVariant.stock} en stock !` 
+                : 'Stock épuisé'
+            }
           </p>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Prix et stock de la variante sélectionnée */}
+      {/* Résumé de la variante sélectionnée */}
       {selectedVariant && (
         <div style={{
-          padding: '12px',
+          padding: '20px',
           backgroundColor: '#f8fafc',
-          borderRadius: '8px',
+          borderRadius: '16px',
           border: '1px solid #e5e7eb'
         }}>
-          <p style={{ margin: 0, fontSize: '14px', color: '#374151' }}>
-            <strong>Prix:</strong> {selectedVariant.prixAjustement} FCFA
-          </p>
-          <p style={{ margin: '4px 0 0', fontSize: '14px', color: '#374151' }}>
-            <strong>SKU:</strong> {selectedVariant.sku}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <h4 style={{ 
+              fontSize: '16px', 
+              fontWeight: '600', 
+              color: '#111827',
+              margin: 0
+            }}>
+              Variante sélectionnée
+            </h4>
+            <span style={{
+              fontSize: '20px',
+              fontWeight: 'bold',
+              color: '#2563eb'
+            }}>
+              {selectedVariant.prixAjustement.toLocaleString()} FCFA
+            </span>
+          </div>
+          
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '12px' }}>
+            {selectedVariant.couleur && (
+              <span style={{
+                padding: '6px 12px',
+                backgroundColor: '#eff6ff',
+                color: '#2563eb',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '500'
+              }}>
+                {selectedVariant.couleur}
+              </span>
+            )}
+            {selectedVariant.taille && (
+              <span style={{
+                padding: '6px 12px',
+                backgroundColor: '#eff6ff',
+                color: '#2563eb',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '500'
+              }}>
+                {selectedVariant.taille}
+              </span>
+            )}
+            {selectedVariant.modele && (
+              <span style={{
+                padding: '6px 12px',
+                backgroundColor: '#eff6ff',
+                color: '#2563eb',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '500'
+              }}>
+                {selectedVariant.modele}
+              </span>
+            )}
+          </div>
+          
+          <p style={{ 
+            fontSize: '13px', 
+            color: '#6b7280', 
+            margin: 0,
+            fontFamily: 'monospace'
+          }}>
+            SKU: {selectedVariant.sku}
           </p>
         </div>
       )}

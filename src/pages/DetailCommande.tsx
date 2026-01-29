@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Package, MapPin, CreditCard, Phone, Clock, ArrowLeft, XCircle } from 'lucide-react';
+import ArticleCommande from '../components/ArticleCommande';
 import { STATUS_LABELS } from '../constants/orderStatus';
 import toast from 'react-hot-toast';
 
@@ -144,20 +145,9 @@ export default function DetailCommande() {
 
       <div className="bg-white rounded-lg shadow-md p-6">
         <h2 className="text-xl font-bold mb-4">Articles commandés</h2>
-        <div className="space-y-4">
+        <div style={{ display: 'grid', gap: '12px' }}>
           {(commande.items || []).map((item) => (
-            <div key={item.id} className="flex items-center border-b pb-4">
-              <img
-                src={item.produit?.images?.[0] || '/placeholder.png'}
-                alt={item.produit?.nom || 'Produit'}
-                className="w-20 h-20 object-cover rounded mr-4"
-              />
-              <div className="flex-1">
-                <h3 className="font-semibold">{item.produit?.nom || 'Produit inconnu'}</h3>
-                <p className="text-gray-600">Quantité: {item.quantite || 0}</p>
-              </div>
-              <p className="font-bold">{((item.prixUnitaire || 0) * (item.quantite || 0)).toLocaleString()} FCFA</p>
-            </div>
+            <ArticleCommande key={item.id} item={item} />
           ))}
         </div>
 

@@ -15,18 +15,53 @@ const Paiement: React.FC = () => {
   const [loadingCommande, setLoadingCommande] = useState(true);
 
   useEffect(() => {
+    console.log('Paiement - commandeId reçu:', commandeId);
     if (commandeId) {
       fetchCommande();
+    } else {
+      console.error('Aucun commandeId fourni');
+      toast.error('ID de commande manquant');
+      navigate('/client/commandes');
+      setLoadingCommande(false);
     }
   }, [commandeId]);
 
   const fetchCommande = async () => {
+    if (!commandeId) {
+      console.error('commandeId est undefined');
+      toast.error('ID de commande invalide');
+      navigate('/client/commandes');
+      setLoadingCommande(false);
+      return;
+    }
+
+    // Valider le format de l'ID de commande (doit être numérique ou UUID)
+    const isValidId = /^[0-9]+$/.test(commandeId) || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(commandeId);
+    if (!isValidId) {
+      console.error('Format d\'ID de commande invalide:', commandeId);
+      toast.error('Format d\'ID de commande invalide');
+      navigate('/client/commandes');
+      setLoadingCommande(false);
+      return;
+    }
+
+    console.log('Tentative de récupération de la commande:', commandeId);
     try {
-      const response = await clientService.getCommande(commandeId!);
+      const response = await clientService.getCommande(commandeId);
+      console.log('Réponse commande:', response);
       setCommande(response.data);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erreur chargement commande:', error);
-      toast.error('Commande introuvable');
+      console.error('Status:', error.response?.status);
+      console.error('Data:', error.response?.data);
+      
+      if (error.response?.status === 400) {
+        toast.error('ID de commande invalide');
+      } else if (error.response?.status === 404) {
+        toast.error('Commande introuvable');
+      } else {
+        toast.error('Erreur lors du chargement de la commande');
+      }
       navigate('/client/commandes');
     } finally {
       setLoadingCommande(false);

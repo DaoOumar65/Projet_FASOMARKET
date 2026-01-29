@@ -60,8 +60,9 @@ export default function Profil() {
       setValue('nomComplet', userData.nomComplet);
       setValue('email', userData.email);
       setValue('adresse', userData.adresse || '');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erreur lors du chargement du profil:', error);
+      toast.error('Erreur lors du chargement du profil');
     } finally {
       setLoading(false);
     }

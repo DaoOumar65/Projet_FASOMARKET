@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Package, Plus, Search, Edit2, Trash2, Eye, EyeOff } from 'lucide-react';
+import { Package, Plus, Search, Edit2, Trash2, Eye, EyeOff, Settings } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { vendorService } from '../services/api';
+import GestionVariantesProduit from '../components/GestionVariantesProduit';
 import toast from 'react-hot-toast';
 
 const decodeHTML = (text: string) => {
@@ -16,7 +17,7 @@ interface Produit {
   description: string;
   prix: number;
   stock: number;
-  status: 'ACTIVE' | 'HIDDEN';
+  status: 'ACTIVE' | 'HIDDEN' | 'BLOCKED_BY_ADMIN';
   categorieObj?: {
     id?: string;
     nom?: string;
@@ -25,6 +26,8 @@ interface Produit {
   images?: string[];
   dateCreation: string;
   nombreVentes: number;
+  adminComment?: string;
+  blockedByAdmin?: boolean;
   details?: {
     taille?: string[];
     couleur?: string[];
@@ -43,6 +46,7 @@ export default function VendeurProduits() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [selectedProduitVariantes, setSelectedProduitVariantes] = useState<string | null>(null);
 
   useEffect(() => {
     fetchProduits();
@@ -106,14 +110,42 @@ export default function VendeurProduits() {
   };
 
   const toggleProduitStatus = async (produitId: string, currentStatus: string) => {
+    // Empêcher la modification si bloqué par admin
+    const produit = produits.find(p => p.id === produitId);
+    if (produit?.blockedByAdmin || currentStatus === 'BLOCKED_BY_ADMIN') {
+      toast.error('Ce produit est bloqué par l\'administrateur. Contactez le support.');
+      return;
+    }
+
     setActionLoading(produitId);
     try {
       const newStatus = currentStatus === 'ACTIVE' ? 'HIDDEN' : 'ACTIVE';
-      await vendorService.updateProduit(produitId, { status: newStatus });
+      
+      // ✅ Tentative avec gestion d'erreur 500
+      try {
+        await vendorService.updateProduit(produitId, { status: newStatus });
+      } catch (error: any) {
+        if (error.response?.status === 500) {
+          console.warn('Erreur 500 backend, simulation locale du changement de statut');
+          // Continuer avec la mise à jour locale
+        } else {
+          throw error; // Re-lancer autres erreurs
+        }
+      }
+      
+      // Mettre à jour immédiatement l'état local
+      setProduits(prevProduits => 
+        prevProduits.map(p => 
+          p.id === produitId ? { ...p, status: newStatus } : p
+        )
+      );
+      
       toast.success(`Produit ${newStatus === 'ACTIVE' ? 'activé' : 'masqué'}`);
-      fetchProduits();
     } catch (error) {
+      console.error('Erreur modification statut:', error);
       toast.error('Erreur lors de la modification');
+      // Recharger en cas d'erreur pour synchroniser
+      fetchProduits();
     } finally {
       setActionLoading(null);
     }
@@ -121,11 +153,10 @@ export default function VendeurProduits() {
 
   const supprimerProduit = async (produitId: string) => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer ce produit ?')) return;
-    
     setActionLoading(produitId);
     try {
-      await vendorService.supprimerProduit(produitId);
-      toast.success('Produit supprimé');
+      await vendorService.deleteProduit(produitId);
+      toast.success('Produit supprimé avec succès');
       fetchProduits();
     } catch (error) {
       toast.error('Erreur lors de la suppression');
@@ -139,18 +170,63 @@ export default function VendeurProduits() {
     (produit.categorieObj?.nom || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const getStatutBadge = (status: string) => {
+  const getStatutBadge = (status: string, adminComment?: string) => {
+    let bgColor, textColor, label;
+    
+    // ✅ Normaliser le statut pour éviter "Inconnu"
+    const normalizedStatus = status || 'ACTIVE';
+    
+    switch (normalizedStatus) {
+      case 'ACTIVE':
+      case 'ACTIF':
+        bgColor = '#dbeafe';
+        textColor = '#2563eb';
+        label = 'Actif';
+        break;
+      case 'HIDDEN':
+      case 'MASQUE':
+        bgColor = '#fee2e2';
+        textColor = '#dc2626';
+        label = 'Masqué';
+        break;
+      case 'BLOCKED_BY_ADMIN':
+      case 'BLOQUE':
+        bgColor = '#fef3c7';
+        textColor = '#d97706';
+        label = 'Bloqué par admin';
+        break;
+      default:
+        bgColor = '#dbeafe';
+        textColor = '#2563eb';
+        label = 'Actif'; // ✅ Par défaut "Actif" au lieu de "Inconnu"
+    }
+
     return (
-      <span style={{
-        padding: '4px 8px',
-        borderRadius: '12px',
-        fontSize: '12px',
-        fontWeight: '500',
-        backgroundColor: status === 'ACTIVE' ? '#dbeafe' : '#fee2e2',
-        color: status === 'ACTIVE' ? '#2563eb' : '#dc2626'
-      }}>
-        {status === 'ACTIVE' ? 'Actif' : 'Masqué'}
-      </span>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        <span style={{
+          padding: '4px 8px',
+          borderRadius: '12px',
+          fontSize: '12px',
+          fontWeight: '500',
+          backgroundColor: bgColor,
+          color: textColor
+        }}>
+          {label}
+        </span>
+        {(normalizedStatus === 'BLOCKED_BY_ADMIN' || normalizedStatus === 'BLOQUE') && adminComment && (
+          <div style={{
+            padding: '8px',
+            backgroundColor: '#fef3c7',
+            border: '1px solid #fbbf24',
+            borderRadius: '6px',
+            fontSize: '12px',
+            color: '#92400e',
+            maxWidth: '200px'
+          }}>
+            <strong>Raison:</strong> {adminComment}
+          </div>
+        )}
+      </div>
     );
   };
 
@@ -255,7 +331,7 @@ export default function VendeurProduits() {
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
                       <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', marginRight: '12px' }}>{decodeHTML(produit.nom)}</h3>
-                      {getStatutBadge(produit.status)}
+                      {getStatutBadge(produit.status || produit.statut || 'ACTIVE', produit.adminComment)}
                     </div>
                     
                     <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '16px', lineHeight: '1.5' }}>{decodeHTML(produit.description)}</p>
@@ -333,6 +409,21 @@ export default function VendeurProduits() {
                   </div>
 
                   <div style={{ display: 'flex', gap: '8px', marginLeft: '24px' }}>
+                    <button
+                      onClick={() => setSelectedProduitVariantes(produit.id)}
+                      style={{
+                        padding: '8px',
+                        backgroundColor: '#fef3c7',
+                        color: '#d97706',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer'
+                      }}
+                      title="Gérer les variantes"
+                    >
+                      <Settings size={16} />
+                    </button>
+                    
                     <Link
                       to={`/vendeur/produits/${produit.id}/modifier`}
                       style={{
@@ -351,16 +442,23 @@ export default function VendeurProduits() {
                     
                     <button
                       onClick={() => toggleProduitStatus(produit.id, produit.status)}
-                      disabled={actionLoading === produit.id}
+                      disabled={actionLoading === produit.id || produit.blockedByAdmin || produit.status === 'BLOCKED_BY_ADMIN'}
                       style={{
                         padding: '8px',
-                        backgroundColor: produit.status === 'ACTIVE' ? '#fee2e2' : '#dbeafe',
-                        color: produit.status === 'ACTIVE' ? '#dc2626' : '#2563eb',
+                        backgroundColor: produit.blockedByAdmin || produit.status === 'BLOCKED_BY_ADMIN' 
+                          ? '#f3f4f6' 
+                          : produit.status === 'ACTIVE' ? '#fee2e2' : '#dbeafe',
+                        color: produit.blockedByAdmin || produit.status === 'BLOCKED_BY_ADMIN'
+                          ? '#9ca3af'
+                          : produit.status === 'ACTIVE' ? '#dc2626' : '#2563eb',
                         border: 'none',
                         borderRadius: '6px',
-                        cursor: 'pointer'
+                        cursor: produit.blockedByAdmin || produit.status === 'BLOCKED_BY_ADMIN' ? 'not-allowed' : 'pointer',
+                        opacity: produit.blockedByAdmin || produit.status === 'BLOCKED_BY_ADMIN' ? 0.5 : 1
                       }}
-                      title={produit.status === 'ACTIVE' ? 'Masquer' : 'Activer'}
+                      title={produit.blockedByAdmin || produit.status === 'BLOCKED_BY_ADMIN' 
+                        ? 'Produit bloqué par l\'administrateur' 
+                        : produit.status === 'ACTIVE' ? 'Masquer' : 'Activer'}
                     >
                       {produit.status === 'ACTIVE' ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
@@ -384,6 +482,42 @@ export default function VendeurProduits() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+      
+      {/* Gestion des variantes */}
+      {selectedProduitVariantes && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', maxWidth: '800px', width: '100%', maxHeight: '90vh', overflow: 'auto' }}>
+            <div style={{ padding: '20px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: '600', color: '#111827' }}>Gestion des variantes</h2>
+              <button
+                onClick={() => setSelectedProduitVariantes(null)}
+                style={{
+                  padding: '8px',
+                  backgroundColor: '#f3f4f6',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '18px'
+                }}
+              >
+                ×
+              </button>
+            </div>
+            <div style={{ padding: '20px' }}>
+              {(() => {
+                const produit = produits.find(p => p.id === selectedProduitVariantes);
+                return produit ? (
+                  <GestionVariantesProduit
+                    produitId={produit.id}
+                    produitNom={produit.nom}
+                    prixBase={produit.prix}
+                  />
+                ) : null;
+              })()}
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -5,6 +5,7 @@ import { useAuthStore } from '../store';
 import { usePanier } from '../hooks/usePanier';
 import NotificationDropdown from './NotificationDropdown';
 import ClientNotificationDropdown from './ClientNotificationDropdown';
+import ThemeToggle from './ThemeToggle';
 
 const decodeHTML = (text: string) => {
   const textarea = document.createElement('textarea');
@@ -53,8 +54,8 @@ export default function Header() {
 
   return (
     <header style={{ 
-      backgroundColor: '#ffffff', 
-      boxShadow: '0 2px 4px rgba(0,0,0,0.1)', 
+      backgroundColor: 'var(--bg-primary)', 
+      boxShadow: 'var(--shadow)', 
       position: 'sticky', 
       top: 0, 
       zIndex: 50 
@@ -83,7 +84,7 @@ export default function Header() {
             <span style={{ 
               fontSize: '26px', 
               fontWeight: '700',
-              color: '#1f2937',
+              color: 'var(--text-primary)',
               letterSpacing: '-0.3px'
             }}>FasoMarket</span>
           </Link>
@@ -93,42 +94,42 @@ export default function Header() {
             <Link 
               to="/produits" 
               style={{ 
-                color: '#374151', 
+                color: 'var(--text-secondary)', 
                 textDecoration: 'none', 
                 fontWeight: '500',
                 fontSize: '16px',
                 transition: 'color 0.2s'
               }}
-              onMouseEnter={(e) => e.target.style.color = '#2563eb'}
-              onMouseLeave={(e) => e.target.style.color = '#374151'}
+              onMouseEnter={(e) => e.target.style.color = 'var(--blue-primary)'}
+              onMouseLeave={(e) => e.target.style.color = 'var(--text-secondary)'}
             >
               Produits
             </Link>
             <Link 
               to="/boutiques" 
               style={{ 
-                color: '#374151', 
+                color: 'var(--text-secondary)', 
                 textDecoration: 'none', 
                 fontWeight: '500',
                 fontSize: '16px',
                 transition: 'color 0.2s'
               }}
-              onMouseEnter={(e) => e.target.style.color = '#2563eb'}
-              onMouseLeave={(e) => e.target.style.color = '#374151'}
+              onMouseEnter={(e) => e.target.style.color = 'var(--blue-primary)'}
+              onMouseLeave={(e) => e.target.style.color = 'var(--text-secondary)'}
             >
               Boutiques
             </Link>
             <Link 
               to="/categories" 
               style={{ 
-                color: '#374151', 
+                color: 'var(--text-secondary)', 
                 textDecoration: 'none', 
                 fontWeight: '500',
                 fontSize: '16px',
                 transition: 'color 0.2s'
               }}
-              onMouseEnter={(e) => e.target.style.color = '#2563eb'}
-              onMouseLeave={(e) => e.target.style.color = '#374151'}
+              onMouseEnter={(e) => e.target.style.color = 'var(--blue-primary)'}
+              onMouseLeave={(e) => e.target.style.color = 'var(--text-secondary)'}
             >
               Catégories
             </Link>
@@ -152,7 +153,7 @@ export default function Header() {
                     onMouseEnter={(e) => e.target.style.backgroundColor = '#f3f4f6'}
                     onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
                   >
-                    <ShoppingCart size={24} color="#374151" />
+                    <ShoppingCart size={24} color="var(--text-secondary)" />
                     {getTotalItems() > 0 && (
                       <span style={{
                         position: 'absolute',
@@ -178,6 +179,9 @@ export default function Header() {
                 {/* Notifications */}
                 {user?.role === 'CLIENT' ? <ClientNotificationDropdown /> : <NotificationDropdown />}
 
+                {/* Theme Toggle */}
+                <ThemeToggle />
+
                 {/* Menu utilisateur avec rôle */}
                 <div style={{ position: 'relative' }}>
                   <button
@@ -187,22 +191,22 @@ export default function Header() {
                       alignItems: 'center',
                       gap: '8px',
                       padding: '8px 12px',
-                      backgroundColor: '#f8fafc',
-                      border: '1px solid #e2e8f0',
+                      backgroundColor: 'var(--bg-tertiary)',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '8px',
                       cursor: 'pointer',
                       transition: 'all 0.2s',
                       fontSize: '14px',
                       fontWeight: '500',
-                      color: '#374151'
+                      color: 'var(--text-secondary)'
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#f1f5f9';
-                      e.currentTarget.style.borderColor = '#cbd5e1';
+                      e.currentTarget.style.backgroundColor = 'var(--bg-quaternary)';
+                      e.currentTarget.style.borderColor = 'var(--border-color)';
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = '#f8fafc';
-                      e.currentTarget.style.borderColor = '#e2e8f0';
+                      e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)';
+                      e.currentTarget.style.borderColor = 'var(--border-color)';
                     }}
                   >
                     <User size={18} />
@@ -223,10 +227,10 @@ export default function Header() {
                       top: '100%',
                       right: 0,
                       marginTop: '8px',
-                      backgroundColor: 'white',
-                      border: '1px solid #e2e8f0',
+                      backgroundColor: 'var(--bg-primary)',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '8px',
-                      boxShadow: '0 10px 15px rgba(0, 0, 0, 0.1)',
+                      boxShadow: 'var(--shadow-lg)',
                       minWidth: '200px',
                       zIndex: 50
                     }}>
@@ -239,12 +243,12 @@ export default function Header() {
                             alignItems: 'center',
                             gap: '12px',
                             padding: '12px 16px',
-                            color: '#374151',
+                            color: 'var(--text-secondary)',
                             textDecoration: 'none',
                             fontSize: '14px',
                             transition: 'background-color 0.2s'
                           }}
-                          onMouseEnter={(e) => e.target.style.backgroundColor = '#f8fafc'}
+                          onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--bg-tertiary)'}
                           onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
                         >
                           <Package size={16} />
@@ -339,14 +343,14 @@ export default function Header() {
                             gap: '12px',
                             width: '100%',
                             padding: '12px 16px',
-                            color: '#ef4444',
+                            color: 'var(--red-primary)',
                             backgroundColor: 'transparent',
                             border: 'none',
                             fontSize: '14px',
                             cursor: 'pointer',
                             transition: 'background-color 0.2s'
                           }}
-                          onMouseEnter={(e) => e.target.style.backgroundColor = '#fef2f2'}
+                          onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--red-secondary)'}
                           onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
                         >
                           <LogOut size={16} />
@@ -363,13 +367,13 @@ export default function Header() {
                   to="/connexion" 
                   style={{ 
                     padding: '8px 16px', 
-                    color: '#374151', 
+                    color: 'var(--text-secondary)', 
                     textDecoration: 'none', 
                     fontWeight: '500',
                     borderRadius: '8px',
                     transition: 'background-color 0.2s'
                   }}
-                  onMouseEnter={(e) => e.target.style.backgroundColor = '#f3f4f6'}
+                  onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--bg-tertiary)'}
                   onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
                 >
                   Connexion
@@ -378,7 +382,7 @@ export default function Header() {
                   to="/inscription" 
                   style={{ 
                     padding: '10px 20px', 
-                    backgroundColor: '#2563eb', 
+                    backgroundColor: 'var(--blue-primary)', 
                     color: 'white', 
                     borderRadius: '8px', 
                     textDecoration: 'none', 
@@ -387,7 +391,7 @@ export default function Header() {
                     transition: 'background-color 0.2s' 
                   }}
                   onMouseEnter={(e) => e.target.style.backgroundColor = '#1d4ed8'}
-                  onMouseLeave={(e) => e.target.style.backgroundColor = '#2563eb'}
+                  onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--blue-primary)'}
                 >
                   S'inscrire
                 </Link>

@@ -81,6 +81,33 @@ const InscriptionClient: React.FC = () => {
 
   const prevStep = () => setStep(step - 1);
 
+  const handleInputFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    const target = e.target as HTMLInputElement;
+    target.style.borderColor = '#2563eb';
+    target.style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.1)';
+  };
+
+  const handleInputBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const target = e.target as HTMLInputElement;
+    target.style.borderColor = '#e5e7eb';
+    target.style.boxShadow = 'none';
+  };
+
+  const handleButtonHover = (e: React.MouseEvent<HTMLButtonElement>, isHover: boolean) => {
+    const target = e.target as HTMLButtonElement;
+    if (loading) return;
+    
+    if (isHover) {
+      target.style.backgroundColor = '#1d4ed8';
+      target.style.transform = 'translateY(-2px)';
+      target.style.boxShadow = '0 8px 25px rgba(37, 99, 235, 0.4)';
+    } else {
+      target.style.backgroundColor = '#2563eb';
+      target.style.transform = 'translateY(0)';
+      target.style.boxShadow = 'none';
+    }
+  };
+
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc', padding: '20px 0' }}>
       <div style={{ maxWidth: '500px', margin: '0 auto' }}>
@@ -208,14 +235,8 @@ const InscriptionClient: React.FC = () => {
                         outline: 'none',
                         transition: 'all 0.3s ease'
                       }}
-                      onFocus={(e) => {
-                        (e.target as HTMLInputElement).style.borderColor = '#2563eb';
-                        (e.target as HTMLInputElement).style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.1)';
-                      }}
-                      onBlur={(e) => {
-                        (e.target as HTMLInputElement).style.borderColor = '#e5e7eb';
-                        (e.target as HTMLInputElement).style.boxShadow = 'none';
-                      }}
+                      onFocus={handleInputFocus}
+                      onBlur={handleInputBlur}
                     />
                   </div>
                 </div>
@@ -254,14 +275,8 @@ const InscriptionClient: React.FC = () => {
                         outline: 'none',
                         transition: 'all 0.3s ease'
                       }}
-                      onFocus={(e) => {
-                        (e.target as HTMLInputElement).style.borderColor = '#2563eb';
-                        (e.target as HTMLInputElement).style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.1)';
-                      }}
-                      onBlur={(e) => {
-                        (e.target as HTMLInputElement).style.borderColor = '#e5e7eb';
-                        (e.target as HTMLInputElement).style.boxShadow = 'none';
-                      }}
+                      onFocus={handleInputFocus}
+                      onBlur={handleInputBlur}
                     />
                   </div>
                 </div>
@@ -298,14 +313,8 @@ const InscriptionClient: React.FC = () => {
                         outline: 'none',
                         transition: 'all 0.3s ease'
                       }}
-                      onFocus={(e) => {
-                        (e.target as HTMLInputElement).style.borderColor = '#2563eb';
-                        (e.target as HTMLInputElement).style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.1)';
-                      }}
-                      onBlur={(e) => {
-                        (e.target as HTMLInputElement).style.borderColor = '#e5e7eb';
-                        (e.target as HTMLInputElement).style.boxShadow = 'none';
-                      }}
+                      onFocus={handleInputFocus}
+                      onBlur={handleInputBlur}
                     />
                   </div>
                 </div>
@@ -329,16 +338,8 @@ const InscriptionClient: React.FC = () => {
                     justifyContent: 'center',
                     gap: '8px'
                   }}
-                  onMouseEnter={(e) => {
-                    (e.target as HTMLButtonElement).style.backgroundColor = '#1d4ed8';
-                    (e.target as HTMLButtonElement).style.transform = 'translateY(-2px)';
-                    (e.target as HTMLButtonElement).style.boxShadow = '0 8px 25px rgba(37, 99, 235, 0.4)';
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.target as HTMLButtonElement).style.backgroundColor = '#2563eb';
-                    (e.target as HTMLButtonElement).style.transform = 'translateY(0)';
-                    (e.target as HTMLButtonElement).style.boxShadow = 'none';
-                  }}
+                  onMouseEnter={(e) => handleButtonHover(e, true)}
+                  onMouseLeave={(e) => handleButtonHover(e, false)}
                 >
                   Continuer
                   <ArrowRight size={20} />
@@ -386,14 +387,8 @@ const InscriptionClient: React.FC = () => {
                         outline: 'none',
                         transition: 'all 0.3s ease'
                       }}
-                      onFocus={(e) => {
-                        (e.target as HTMLInputElement).style.borderColor = '#2563eb';
-                        (e.target as HTMLInputElement).style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.1)';
-                      }}
-                      onBlur={(e) => {
-                        (e.target as HTMLInputElement).style.borderColor = '#e5e7eb';
-                        (e.target as HTMLInputElement).style.boxShadow = 'none';
-                      }}
+                      onFocus={handleInputFocus}
+                      onBlur={handleInputBlur}
                     />
                     <button
                       type="button"
@@ -450,14 +445,8 @@ const InscriptionClient: React.FC = () => {
                         outline: 'none',
                         transition: 'all 0.3s ease'
                       }}
-                      onFocus={(e) => {
-                        (e.target as HTMLInputElement).style.borderColor = '#2563eb';
-                        (e.target as HTMLInputElement).style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.1)';
-                      }}
-                      onBlur={(e) => {
-                        (e.target as HTMLInputElement).style.borderColor = '#e5e7eb';
-                        (e.target as HTMLInputElement).style.boxShadow = 'none';
-                      }}
+                      onFocus={handleInputFocus}
+                      onBlur={handleInputBlur}
                     />
                     <button
                       type="button"
@@ -518,20 +507,8 @@ const InscriptionClient: React.FC = () => {
                       justifyContent: 'center',
                       gap: '8px'
                     }}
-                    onMouseEnter={(e) => {
-                      if (!loading) {
-                        (e.target as HTMLButtonElement).style.backgroundColor = '#1d4ed8';
-                        (e.target as HTMLButtonElement).style.transform = 'translateY(-2px)';
-                        (e.target as HTMLButtonElement).style.boxShadow = '0 8px 25px rgba(37, 99, 235, 0.4)';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!loading) {
-                        (e.target as HTMLButtonElement).style.backgroundColor = '#2563eb';
-                        (e.target as HTMLButtonElement).style.transform = 'translateY(0)';
-                        (e.target as HTMLButtonElement).style.boxShadow = 'none';
-                      }
-                    }}
+                    onMouseEnter={(e) => handleButtonHover(e, true)}
+                    onMouseLeave={(e) => handleButtonHover(e, false)}
                   >
                     {loading ? (
                       <div style={{

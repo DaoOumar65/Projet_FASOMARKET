@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Package, Search, ShoppingCart, Store, AlertCircle } from 'lucide-react';
+import VariantesPreview from '../components/VariantesPreview';
 import { publicService } from '../services/api';
+import type { ProduitVarianteComplete } from '../types';
 
 // Composant carrousel d'images
 const ImageCarousel = ({ images, productName }: { images: string[], productName: string }) => {
@@ -95,6 +97,7 @@ interface Produit {
   categorie: { nom: string };
   boutique?: { nom: string };
   stock: number;
+  variantes?: ProduitVarianteComplete[];
   details?: {
     taille?: string[];
     couleur?: string[];
@@ -124,13 +127,20 @@ export default function Produits() {
       const response = await publicService.getProduits();
       console.log('API Response:', response);
       console.log('Products data:', response.data);
-      if (response.data && response.data.length > 0) {
-        console.log('First product:', response.data[0]);
-        console.log('First product images:', response.data[0].images);
-        console.log('Images type:', typeof response.data[0].images);
-        console.log('Is array:', Array.isArray(response.data[0].images));
-      }
-      setProduits(response.data || []);
+      
+      const produitsAvecVariantes = await Promise.all(
+        (response.data || []).map(async (produit: Produit) => {
+          try {
+            const variantesResponse = await publicService.getProduitVariantes(produit.id);
+            return { ...produit, variantes: variantesResponse.data || [] };
+          } catch (error) {
+            console.log(`Pas de variantes pour le produit ${produit.id}`);
+            return { ...produit, variantes: [] };
+          }
+        })
+      );
+      
+      setProduits(produitsAvecVariantes);
     } catch (error: any) {
       console.error('Error loading products:', error);
       console.error('Error response:', error.response);
@@ -253,8 +263,15 @@ export default function Produits() {
                     </span>
                   )}
 
-                  {/* Détails produit */}
-                  {produit.details && (produit.details.taille?.length || produit.details.couleur?.length || produit.details.marque) && (
+                  {/* Variantes disponibles */}
+                  {produit.variantes && produit.variantes.length > 0 && (
+                    <div style={{ marginTop: '8px' }}>
+                      <VariantesPreview variantes={produit.variantes} maxDisplay={4} size="sm" />
+                    </div>
+                  )}
+
+                  {/* Détails produit (fallback si pas de variantes) */}
+                  {(!produit.variantes || produit.variantes.length === 0) && produit.details && (produit.details.taille?.length || produit.details.couleur?.length || produit.details.marque) && (
                     <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '6px', fontSize: '11px' }}>
                       {produit.details.marque && (
                         <span style={{ padding: '3px 6px', backgroundColor: '#dbeafe', color: '#2563eb', borderRadius: '4px', fontWeight: '500' }}>

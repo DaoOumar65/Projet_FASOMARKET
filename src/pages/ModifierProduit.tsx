@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Save, X } from 'lucide-react';
+import { ArrowLeft, Save, X, Upload, Trash2 } from 'lucide-react';
 import { vendorService } from '../services/api';
+import { useImageUpload } from '../hooks/useImageUpload';
 import toast from 'react-hot-toast';
 
 export default function ModifierProduit() {
@@ -11,6 +12,8 @@ export default function ModifierProduit() {
   const [saving, setSaving] = useState(false);
   const [tailleInput, setTailleInput] = useState('');
   const [couleurInput, setCouleurInput] = useState('');
+  const { uploadImage, uploading: uploadingImage, MAX_IMAGES } = useImageUpload();
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     nom: '',
     description: '',
@@ -58,6 +61,17 @@ export default function ModifierProduit() {
         }
       }
       
+      // Parser images
+      let images = [];
+      if (produit.images) {
+        if (typeof produit.images === 'string') {
+          images = produit.images.split(',').map((img: string) => img.trim()).filter(Boolean);
+        } else if (Array.isArray(produit.images)) {
+          images = produit.images.filter(Boolean);
+        }
+      }
+      setImageUrls(images);
+      
       setFormData({
         nom: produit.nom || '',
         description: produit.description || '',
@@ -78,15 +92,14 @@ export default function ModifierProduit() {
       console.error('Erreur détaillée:', error);
       console.error('Status:', error.response?.status);
       console.error('Data:', error.response?.data);
+      console.error('URL appelée:', error.config?.url);
       
-      if (error.response?.status === 405) {
-        toast.error('Endpoint non implémenté (405). Voir FIX_URGENT_PRODUITS.md');
-      } else if (error.response?.status === 404) {
+      if (error.response?.status === 404) {
         toast.error('Produit non trouvé');
       } else if (error.code === 'ERR_NETWORK') {
         toast.error('Erreur réseau. Vérifiez que le backend est démarré.');
       } else {
-        toast.error('Erreur lors du chargement du produit');
+        toast.error(`Erreur: ${error.response?.status || error.message}`);
       }
       navigate('/vendeur/produits');
     } finally {
@@ -127,6 +140,8 @@ export default function ModifierProduit() {
         prix: prixNum,
         quantiteStock: stockNum,
         status: formData.status || 'ACTIVE',
+        images: imageUrls.length > 0 ? imageUrls.join(',') : '',
+        imagesList: imageUrls,
         // Détails produit - Toujours envoyer (éviter NULL)
         sizes: formData.tailles && Array.isArray(formData.tailles) && formData.tailles.length > 0 ? JSON.stringify(formData.tailles) : '[]',
         colors: formData.couleurs && Array.isArray(formData.couleurs) && formData.couleurs.length > 0 ? JSON.stringify(formData.couleurs) : '[]',
@@ -180,6 +195,28 @@ export default function ModifierProduit() {
 
   const removeCouleur = (couleur: string) => {
     setFormData({ ...formData, couleurs: formData.couleurs.filter(c => c !== couleur) });
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (imageUrls.length >= MAX_IMAGES) {
+      toast.error(`Maximum ${MAX_IMAGES} images autorisées`);
+      return;
+    }
+
+    try {
+      const imageUrl = await uploadImage(file);
+      setImageUrls([...imageUrls, imageUrl]);
+      toast.success('Image ajoutée avec succès');
+    } catch (error) {
+      toast.error('Erreur lors de l\'upload de l\'image');
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setImageUrls(imageUrls.filter((_, i) => i !== index));
   };
 
   if (loading) {
@@ -240,6 +277,71 @@ export default function ModifierProduit() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Images du produit */}
+        <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '12px', border: '1px solid #e5e7eb', marginBottom: '24px' }}>
+          <h2 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', marginBottom: '20px' }}>Images du produit</h2>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+            {imageUrls.map((url, index) => (
+              <div key={index} style={{ position: 'relative', aspectRatio: '1', borderRadius: '8px', overflow: 'hidden', border: '1px solid #e5e7eb' }}>
+                <img 
+                  src={url} 
+                  alt={`Produit ${index + 1}`}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => removeImage(index)}
+                  style={{
+                    position: 'absolute',
+                    top: '8px',
+                    right: '8px',
+                    padding: '4px',
+                    backgroundColor: 'rgba(239, 68, 68, 0.9)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            ))}
+            
+            {imageUrls.length < MAX_IMAGES && (
+              <label style={{
+                aspectRatio: '1',
+                border: '2px dashed #d1d5db',
+                borderRadius: '8px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                backgroundColor: '#f9fafb',
+                transition: 'all 0.2s'
+              }}>
+                <Upload size={24} style={{ color: '#6b7280', marginBottom: '8px' }} />
+                <span style={{ fontSize: '14px', color: '#6b7280', textAlign: 'center' }}>
+                  {uploadingImage ? 'Upload...' : 'Ajouter image'}
+                </span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  disabled={uploadingImage}
+                  style={{ display: 'none' }}
+                />
+              </label>
+            )}
+          </div>
+          
+          <p style={{ fontSize: '12px', color: '#6b7280' }}>
+            {imageUrls.length}/{MAX_IMAGES} images • Formats acceptés: JPG, PNG, WebP • Taille max: 5MB
+          </p>
         </div>
 
         {/* Détails du produit */}

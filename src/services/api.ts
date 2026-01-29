@@ -1,5 +1,18 @@
 import axios from 'axios';
-import type { AuthResponse, User, Boutique, Produit, Commande, PanierItem, Notification, Categorie, Adresse, Favori, CommandeResponse } from '../types';
+import type { AuthResponse, User, Boutique, Produit, Commande, PanierItem, Notification, Categorie, Adresse, Favori, CommandeResponse, ProduitVarianteComplete } from '../types';
+
+// Interface pour les variantes (legacy - utiliser ProduitVarianteComplete pour les nouvelles implémentations)
+export interface ProduitVariante {
+  id: number;
+  produitId: string;
+  couleur?: string;
+  taille?: string;
+  modele?: string;
+  prixAjustement: number;
+  stock: number;
+  createdAt: string;
+  updatedAt: string;
+}
 
 const API_BASE_URL = 'http://localhost:8081';
 
@@ -78,7 +91,7 @@ export const publicService = {
   getBoutique: (id: string) => api.get<Boutique>(`/api/public/boutiques/${id}`),
   getBoutiqueProduits: (id: string) => api.get<Produit[]>(`/api/public/boutiques/${id}/produits`),
   getProduit: (id: string) => api.get<Produit>(`/api/public/produits/${id}`),
-  getProduitVariantes: (id: string) => api.get(`/api/public/produits/${id}/variantes`),
+  getProduitVariantes: (id: string) => api.get<ProduitVarianteComplete[]>(`/api/public/produits/${id}/variantes`),
   getProduits: (page = 0, size = 20, filters?: any) => {
     const params = new URLSearchParams();
     params.append('page', page.toString());
@@ -97,7 +110,7 @@ export const clientService = {
   updateProfil: (data: Partial<User>) => api.put('/api/client/profil', data),
   
   // Panier avec variantes
-  ajouterAuPanier: (produitId: string, quantite: number, varianteId?: string) => 
+  ajouterAuPanier: (produitId: string, quantite: number, varianteId?: number) => 
     api.post('/api/client/panier/ajouter', { produitId, quantite, varianteId }),
   getPanier: () => api.get<PanierItem[]>('/api/client/panier'),
   supprimerDuPanier: (itemId: string) => api.delete(`/api/client/panier/${itemId}`),
@@ -163,22 +176,62 @@ export const vendorService = {
   updateBoutique: (id: string, data: any) => api.put(`/api/vendeur/boutiques/${id}`, data),
   soumettreValidation: (boutiqueId: string) => api.post(`/api/vendeur/boutiques/${boutiqueId}/soumettre`),
   getCategoryFormFields: (categoryId: string) => api.get(`/api/vendeur/categories/${categoryId}/form-fields`),
+  getFormOptions: (categoryId?: string) => {
+    const endpoint = categoryId 
+      ? `/api/vendeur/form-options/${categoryId}`
+      : '/api/vendeur/form-options';
+    return api.get(endpoint);
+  },
   updateLivraison: (data: any) => api.put('/api/vendeur/boutiques/livraison', data),
+  createCategory: (data: { nom: string; description: string; icone: string }) => api.post('/api/vendeur/categories/creer', data),
   
   // Produits avec variantes
   creerProduit: (data: any) => api.post('/api/vendeur/produits/creer', data),
-  getProduits: () => api.get('/api/vendeur/produits'),
-  getProduit: (id: string) => api.get(`/api/vendeur/produits/${id}`),
-  getProduitVariantes: (id: string) => api.get(`/api/vendeur/produits/${id}/variantes`),
+  creerProduitAvecVariantes: (data: any) => api.post('/api/vendeur/produits/creer-avec-variantes', data),
+  getProduits: () => {
+    return api.get('/api/vendeur/produits').then(response => {
+      // ✅ Mapping avec statut par défaut pour éviter "Inconnu"
+      const produits = (response.data || []).map((produit: any) => ({
+        ...produit,
+        statut: produit.statut || 'ACTIF', // ✅ Statut par défaut
+        stock: produit.stock || 0,
+        prix: produit.prix || 0,
+        categorie: produit.categorie || 'Non définie'
+      }));
+      return { ...response, data: produits };
+    });
+  },
+  getProduit: (id: string) => {
+    return api.get(`/api/vendeur/produits/${id}`).then(response => {
+      // ✅ Mapping avec statut par défaut
+      const produit = {
+        ...response.data,
+        statut: response.data?.statut || 'ACTIF', // ✅ Statut par défaut
+        stock: response.data?.stock || 0,
+        prix: response.data?.prix || 0,
+        categorie: response.data?.categorie || 'Non définie'
+      };
+      return { ...response, data: produit };
+    });
+  },
+  getProduitVariantes: (id: string) => api.get<ProduitVarianteComplete[]>(`/api/vendeur/produits/${id}/variantes`),
   genererVariantes: (produitId: string) => api.post(`/api/vendeur/produits/${produitId}/variantes/generer`),
-  creerVariante: (produitId: string, data: any) => api.post(`/api/vendeur/produits/${produitId}/variantes`, data),
-  updateVariante: (produitId: string, varianteId: string, data: any) => api.put(`/api/vendeur/produits/${produitId}/variantes/${varianteId}`, data),
-  supprimerVariante: (produitId: string, varianteId: string) => api.delete(`/api/vendeur/produits/${produitId}/variantes/${varianteId}`),
-  updateProduit: (id: string, data: any) => api.put(`/api/vendeur/produits/${id}`, data),
+  creerVariante: (produitId: string, data: Partial<ProduitVarianteComplete>) => api.post(`/api/vendeur/produits/${produitId}/variantes`, data),
+  updateVariante: (produitId: string, varianteId: number, data: Partial<ProduitVarianteComplete>) => api.put(`/api/vendeur/produits/${produitId}/variantes/${varianteId}`, data),
+  supprimerVariante: (produitId: string, varianteId: number) => api.delete(`/api/vendeur/produits/${produitId}/variantes/${varianteId}`),
+  updateProduit: (id: string, data: any) => {
+    console.log('Envoi des données de mise à jour:', data);
+    return api.put(`/api/vendeur/produits/${id}`, data);
+  },
   supprimerProduit: (id: string) => api.delete(`/api/vendeur/produits/${id}`),
+  deleteProduit: (id: string) => api.delete(`/api/vendeur/produits/${id}`),
+  // Gestion du stock avec variantes
   getGestionStock: () => api.get('/api/vendeur/gestion-stock'),
   updateStock: (produitId: string, data: { quantiteStock: number; seuilAlerte: number }) =>
     api.put(`/api/vendeur/produits/${produitId}/stock`, data),
+  getStockStatistics: () => api.get('/api/vendeur/stock/statistiques'),
+  updateAlertThreshold: (produitId: string, threshold: number) =>
+    api.put(`/api/vendeur/produits/${produitId}/alert-threshold`, { alertThreshold: threshold }),
   
   // Commandes
   getCommandes: () => api.get('/api/vendeur/commandes'),
@@ -235,6 +288,10 @@ export const adminService = {
   getProduitDetails: (produitId: string) => api.get(`/api/admin/produits/${produitId}/details`),
   updateProduitStatut: (produitId: string, statut: string) =>
     api.put(`/api/admin/produits/${produitId}/statut`, { statut }),
+  bloquerProduit: (produitId: string, commentaire: string) =>
+    api.put(`/api/admin/produits/${produitId}/bloquer`, { commentaire }),
+  debloquerProduit: (produitId: string) =>
+    api.put(`/api/admin/produits/${produitId}/debloquer`),
   supprimerProduit: (produitId: string) => api.delete(`/api/admin/produits/${produitId}`),
   
   // Commandes
@@ -243,7 +300,7 @@ export const adminService = {
   updateCommandeStatut: (id: string, statut: string) =>
     api.put(`/api/admin/commandes/${id}/statut`, { statut }),
   
-  // Catégories
+  // Créer catégorie
   creerCategorie: (data: { nom: string; description: string; icone: string }) =>
     api.post('/api/admin/categories/creer', data),
   getCategories: () => api.get('/api/admin/categories'),
@@ -255,11 +312,66 @@ export const adminService = {
   diffuserNotification: (titre: string, message: string) =>
     api.post('/api/admin/notifications/diffuser', { titre, message }),
   getNotificationsHistorique: () => api.get('/api/admin/notifications/historique'),
+  getNotifications: () => api.get('/api/admin/notifications'),
+  marquerNotificationLue: (id: string) => api.put(`/api/admin/notifications/${id}/lue`),
   getStatistiquesSysteme: () => api.get('/api/admin/statistiques/revenus'),
   
   // Badges de notification
   getBadges: () => api.get('/api/admin/badges'),
 };
 
+// Gestion Stock Vendeur
+export const obtenirInfoStock = async (produitId: string): Promise<{stockGlobal: number, stockVariantesTotal: number, stockDisponible: number}> => {
+  try {
+    const response = await api.get(`/api/vendeur/produits/${produitId}/stock-disponible`);
+    return response.data;
+  } catch (error) {
+    console.error('Erreur récupération info stock:', error);
+    // Fallback: calculer côté client
+    try {
+      const variantes = await getVariantesProduit(produitId);
+      const stockVariantesTotal = variantes.reduce((sum, v) => sum + v.stock, 0);
+      const produit = await obtenirProduit(produitId);
+      return {
+        stockGlobal: produit.stock || 0,
+        stockVariantesTotal,
+        stockDisponible: (produit.stock || 0) - stockVariantesTotal
+      };
+    } catch (fallbackError) {
+      console.error('Erreur fallback:', fallbackError);
+      return {
+        stockGlobal: 0,
+        stockVariantesTotal: 0,
+        stockDisponible: 0
+      };
+    }
+  }
+};
+
+// Alias pour compatibilité
+export const getVariantesProduit = async (produitId: string) => {
+  try {
+    console.log('Tentative récupération variantes pour:', produitId);
+    const response = await vendorService.getProduitVariantes(produitId);
+    console.log('Réponse variantes:', response.data);
+    return response.data || [];
+  } catch (error: any) {
+    console.error('Erreur complète variantes:', {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      message: error.message,
+      produitId
+    });
+    
+    // Toujours retourner liste vide pour éviter crash
+    return [];
+  }
+};
+
+export const modifierVariante = (produitId: string, varianteId: number, data: any) => vendorService.updateVariante(produitId, varianteId, data);
+export const obtenirProduit = (produitId: string) => vendorService.getProduit(produitId);
+
 export { api };
 export default api;
+export type { ProduitVariante, ProduitVarianteComplete };

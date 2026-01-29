@@ -111,18 +111,45 @@ export interface CommandeResponse {
 }
 
 export interface ProduitVariante {
-  id: string;
+  id: number;
   produitId: string;
   couleur?: string;
   taille?: string;
   modele?: string;
   prixAjustement: number;
   stock: number;
-  sku: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ArticleCommande {
+  id: string;
+  nomProduit: string;
+  quantite: number;
+  prixUnitaire: number;
+  prixTotal: number;
+  nomBoutique: string;
+  // Support variantes
+  varianteId?: number;
+  couleurSelectionnee?: string;
+  tailleSelectionnee?: string;
+  modeleSelectionne?: string;
+  varianteInfo?: string;
 }
 
 export interface PanierItem {
   id: string;
+  produitId: string;
+  nomProduit: string;
+  quantite: number;
+  prixUnitaire: number;
+  prixTotal: number;
+  // Support variantes
+  varianteId?: number;
+  couleurSelectionnee?: string;
+  tailleSelectionnee?: string;
+  modeleSelectionne?: string;
+  varianteInfo?: string;
   produit: {
     id: string;
     nom: string;
@@ -136,12 +163,7 @@ export interface PanierItem {
       fraisLivraison: number;
     };
   };
-  quantite: number;
-  varianteId?: string;
   variante?: ProduitVariante;
-  couleurSelectionnee?: string;
-  tailleSelectionnee?: string;
-  modeleSelectionne?: string;
 }
 
 // Commande
@@ -150,17 +172,27 @@ export interface CommandeItem {
   produit: Produit;
   quantite: number;
   prix: number;
+  // Support variantes
+  varianteId?: number;
+  couleurSelectionnee?: string;
+  tailleSelectionnee?: string;
+  modeleSelectionne?: string;
+  varianteInfo?: string;
 }
 
 export interface Commande {
   id: string;
+  numeroCommande: string;
   statut: 'PENDING' | 'CONFIRMED' | 'PREPARING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
-  adresseLivraison: string;
-  methodePaiement: 'MOBILE_MONEY';
-  numeroTelephone: string;
-  total: number;
-  dateCreation: string;
-  items: CommandeItem[];
+  totalAmount: number;
+  dateCommande: string;
+  articles: ArticleCommande[];
+  adresseLivraison?: string;
+  needsDelivery: boolean;
+  methodePaiement?: 'MOBILE_MONEY';
+  numeroTelephone?: string;
+  dateCreation?: string;
+  items?: CommandeItem[];
 }
 
 // Notification
@@ -197,6 +229,8 @@ export interface Categorie {
   nom: string;
   description: string;
   icone: string;
+  isActive?: boolean;
+  variantConfig?: VariantConfig;
 }
 
 // Types pour les formulaires de connexion/inscription
@@ -284,3 +318,7 @@ export const MESSAGES_ERREUR = {
   ERREUR_RESEAU: "Erreur de connexion. Vérifiez votre connexion internet",
   ERREUR_SERVEUR: "Erreur serveur. Veuillez réessayer plus tard"
 };
+
+// Export des types étendus pour les variantes
+export * from './variantes';
+export * from './category';

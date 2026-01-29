@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Package, Clock, CheckCircle, XCircle, Truck } from 'lucide-react';
+import Badge from '../components/Badge';
 import { clientService } from '../services/api';
 import { STATUS_LABELS, STATUS_COLORS, STATUS_FILTERS } from '../constants/orderStatus';
 import toast from 'react-hot-toast';

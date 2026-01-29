@@ -4,26 +4,16 @@ import { ShoppingCart, Heart, Store, Truck, Shield, ArrowLeft, Plus, Minus, Star
 import { publicService } from '../services/api';
 import { usePanier } from '../hooks/usePanier';
 import { useAuthStore } from '../store';
-import ProductVariants from '../components/ProductVariants';
+import SelecteurVariantes from '../components/SelecteurVariantes';
+import type { ProduitVarianteComplete } from '../types';
 import toast from 'react-hot-toast';
-
-interface ProduitVariante {
-  id: string;
-  produitId: string;
-  couleur?: string;
-  taille?: string;
-  modele?: string;
-  prixAjustement: number;
-  stock: number;
-  sku: string;
-}
 
 interface Produit {
   id: string;
   nom: string;
   description: string;
   prix: number;
-  images: string[]; // Toujours un array après mapping
+  images: string[];
   boutique: {
     id: string;
     nom: string;
@@ -34,7 +24,6 @@ interface Produit {
   disponible: boolean;
   quantiteStock: number;
   categorie: string;
-  // Détails du produit
   details?: {
     taille?: string[];
     couleur?: string[];
@@ -44,9 +33,8 @@ interface Produit {
     dimensions?: string;
     garantie?: string;
     origine?: string;
-    [key: string]: any; // Pour d'autres attributs dynamiques
+    [key: string]: any;
   };
-  // Champs optionnels pour compatibilité API
   boutiqueId?: string;
   nomBoutique?: string;
   stock?: number;
@@ -59,8 +47,9 @@ export default function DetailProduit() {
   const [loading, setLoading] = useState(true);
   const [quantite, setQuantite] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
-  const [variantes, setVariantes] = useState<ProduitVariante[]>([]);
-  const [selectedVariante, setSelectedVariante] = useState<ProduitVariante | null>(null);
+  const [variantes, setVariantes] = useState<ProduitVarianteComplete[]>([]);
+  const [selectedVariante, setSelectedVariante] = useState<ProduitVarianteComplete | null>(null);
+  const [loadingVariantes, setLoadingVariantes] = useState(false);
   const { ajouterAuPanier } = usePanier();
   const { isAuthenticated, user } = useAuthStore();
 
@@ -72,24 +61,34 @@ export default function DetailProduit() {
 
   const fetchProduit = async () => {
     try {
+      setLoading(true);
       const response = await publicService.getProduit(id!);
-      console.log('Réponse API complète:', response);
-      console.log('Données produit brutes:', response.data);
+      console.log('Réponse API produit:', response.data);
       
-      // Charger les variantes
+      // Charger les variantes en parallèle
+      setLoadingVariantes(true);
       try {
         const variantesResponse = await publicService.getProduitVariantes(id!);
         console.log('Variantes chargées:', variantesResponse.data);
-        setVariantes(variantesResponse.data || []);
+        const variantesData = (variantesResponse.data || []).filter((v: ProduitVarianteComplete) => v.stock > 0);
+        setVariantes(variantesData);
+        
+        // Sélectionner automatiquement la première variante disponible
+        if (variantesData.length > 0) {
+          const firstAvailable = variantesData.find((v: ProduitVarianteComplete) => v.stock > 0) || variantesData[0];
+          setSelectedVariante(firstAvailable);
+        }
       } catch (error) {
-        console.log('Pas de variantes pour ce produit ou erreur:', error);
+        console.log('Pas de variantes pour ce produit:', error);
         setVariantes([]);
+      } finally {
+        setLoadingVariantes(false);
       }
       
-      // Utiliser directement les données de l'API avec mapping minimal
+      // Mapper les données du produit
       const produitData = {
         ...response.data,
-        images: response.data.images ? [response.data.images] : ['https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=400'],
+        images: response.data.images || [],
         boutique: {
           id: response.data.boutiqueId,
           nom: response.data.boutiqueNom,
@@ -121,30 +120,87 @@ export default function DetailProduit() {
       return;
     }
 
+    // Vérifier si des variantes existent et si une est sélectionnée
+    if (variantes.length > 0 && !selectedVariante) {
+      toast.error('Veuillez sélectionner toutes les options du produit');
+      return;
+    }
+
+    // Vérifier le stock
+    const stockDisponible = selectedVariante ? selectedVariante.stock : (produit?.quantiteStock || produit?.stock || 0);
+    if (quantite > stockDisponible) {
+      toast.error(`Stock insuffisant. Seulement ${stockDisponible} disponible(s)`);
+      return;
+    }
+
     if (produit) {
       try {
         await ajouterAuPanier(produit.id, quantite, selectedVariante?.id);
         toast.success(`${quantite} ${produit.nom} ajouté${quantite > 1 ? 's' : ''} au panier`);
       } catch (error) {
+        console.error('Erreur ajout panier:', error);
         toast.error('Erreur lors de l\'ajout au panier');
       }
     }
   };
 
-  const handleVariantChange = (variante: ProduitVariante | null, qty: number) => {
-    setSelectedVariante(variante);
-    setQuantite(qty);
+  const getValidImageUrl = (imageUrl: string | string[]): string => {
+    // Si c'est un tableau, prendre le premier élément
+    const url = Array.isArray(imageUrl) ? imageUrl[0] : imageUrl;
+    
+    // Vérifier si l'URL est valide
+    if (!url || typeof url !== 'string' || url.trim() === '') {
+      return 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop'; // Casque/accessoire
+    }
+    
+    // Vérifier si c'est une URL complète
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    
+    // Si c'est un chemin relatif, construire l'URL complète
+    if (url.startsWith('/')) {
+      return `http://localhost:8081${url}`;
+    }
+    
+    // Par défaut, image de fallback spécifique aux accessoires
+    return 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop';
+  };
+
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.target as HTMLImageElement;
+    img.src = 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop'; // Casque/accessoire
+  };
+
+  const getCurrentStock = (): number => {
+    return selectedVariante ? selectedVariante.stock : (produit?.quantiteStock || produit?.stock || 0);
+  };
+
+  const getCurrentPrice = (): number => {
+    if (!selectedVariante) return produit?.prix || 0;
+    return (produit?.prix || 0) + (selectedVariante.prixAjustement || 0);
   };
 
   if (loading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}>
-        <div style={{ width: '48px', height: '48px', border: '2px solid #e5e7eb', borderTop: '2px solid #2563eb', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+        <div style={{ 
+          width: '48px', 
+          height: '48px', 
+          border: '2px solid #e5e7eb', 
+          borderTop: '2px solid #2563eb', 
+          borderRadius: '50%', 
+          animation: 'spin 1s linear infinite' 
+        }}></div>
       </div>
     );
   }
 
   if (!produit) return null;
+
+  const currentStock = getCurrentStock();
+  const currentPrice = getCurrentPrice();
+  const canAddToCart = produit.disponible && currentStock > 0 && (variantes.length === 0 || selectedVariante) && !(variantes.length > 0 && variantes.filter(v => v.stock > 0).length === 0);
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc', padding: '32px 0' }}>
@@ -178,14 +234,29 @@ export default function DetailProduit() {
           Retour
         </button>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '48px', backgroundColor: 'white', padding: '40px', borderRadius: '16px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: '1fr 1fr', 
+          gap: '48px', 
+          backgroundColor: 'white', 
+          padding: '40px', 
+          borderRadius: '16px', 
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' 
+        }}>
           {/* Images */}
           <div>
-            <div style={{ marginBottom: '16px', borderRadius: '12px', overflow: 'hidden', backgroundColor: '#f3f4f6', aspectRatio: '1' }}>
+            <div style={{ 
+              marginBottom: '16px', 
+              borderRadius: '12px', 
+              overflow: 'hidden', 
+              backgroundColor: '#f3f4f6', 
+              aspectRatio: '1' 
+            }}>
               <img
-                src={Array.isArray(produit.images) && produit.images.length > 0 ? produit.images[selectedImage] : 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=400'}
+                src={getValidImageUrl(Array.isArray(produit.images) && produit.images.length > 0 ? produit.images[selectedImage] : produit.images)}
                 alt={produit.nom || 'Produit'}
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                onError={handleImageError}
               />
             </div>
             {Array.isArray(produit.images) && produit.images.length > 1 && (
@@ -204,7 +275,12 @@ export default function DetailProduit() {
                       opacity: selectedImage === idx ? 1 : 0.6
                     }}
                   >
-                    <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img 
+                      src={getValidImageUrl(img)} 
+                      alt="" 
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                      onError={handleImageError}
+                    />
                   </div>
                 ))}
               </div>
@@ -214,10 +290,26 @@ export default function DetailProduit() {
           {/* Détails */}
           <div>
             <div style={{ marginBottom: '24px' }}>
-              <span style={{ display: 'inline-block', padding: '4px 12px', backgroundColor: '#eff6ff', color: '#2563eb', borderRadius: '6px', fontSize: '12px', fontWeight: '500', marginBottom: '12px' }}>
+              <span style={{ 
+                display: 'inline-block', 
+                padding: '4px 12px', 
+                backgroundColor: '#eff6ff', 
+                color: '#2563eb', 
+                borderRadius: '6px', 
+                fontSize: '12px', 
+                fontWeight: '500', 
+                marginBottom: '12px' 
+              }}>
                 {produit.categorie}
               </span>
-              <h1 style={{ fontSize: '32px', fontWeight: 'bold', color: '#111827', marginBottom: '12px' }}>{produit.nom || 'Produit'}</h1>
+              <h1 style={{ 
+                fontSize: '32px', 
+                fontWeight: 'bold', 
+                color: '#111827', 
+                marginBottom: '12px' 
+              }}>
+                {produit.nom || 'Produit'}
+              </h1>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
                 <div style={{ display: 'flex', gap: '2px' }}>
                   {[1, 2, 3, 4, 5].map((star) => (
@@ -226,47 +318,149 @@ export default function DetailProduit() {
                 </div>
                 <span style={{ fontSize: '14px', color: '#6b7280' }}>(4.5)</span>
               </div>
-              <p style={{ fontSize: '40px', fontWeight: 'bold', color: '#2563eb' }}>
-                {selectedVariante ? selectedVariante.prixAjustement.toLocaleString() : (produit.prix || 0).toLocaleString()} FCFA
+              <p style={{ 
+                fontSize: '40px', 
+                fontWeight: 'bold', 
+                color: '#2563eb',
+                marginBottom: '8px'
+              }}>
+                {currentPrice.toLocaleString()} FCFA
+              </p>
+              {selectedVariante && selectedVariante.prixAjustement !== 0 && (
+                <p style={{ 
+                  fontSize: '18px', 
+                  color: '#6b7280',
+                  textDecoration: 'line-through'
+                }}>
+                  Prix de base: {produit.prix.toLocaleString()} FCFA
+                </p>
+              )}
+            </div>
+
+            <div style={{ 
+              padding: '20px', 
+              backgroundColor: '#f8fafc', 
+              borderRadius: '12px', 
+              marginBottom: '24px' 
+            }}>
+              <p style={{ 
+                fontSize: '15px', 
+                color: '#374151', 
+                lineHeight: '1.6' 
+              }}>
+                {produit.description || 'Aucune description disponible'}
               </p>
             </div>
 
-            <div style={{ padding: '20px', backgroundColor: '#f8fafc', borderRadius: '12px', marginBottom: '24px' }}>
-              <p style={{ fontSize: '15px', color: '#374151', lineHeight: '1.6' }}>{produit.description || 'Aucune description disponible'}</p>
+            {/* Variantes */}
+            {loadingVariantes ? (
+              <div style={{ 
+                padding: '20px', 
+                textAlign: 'center', 
+                color: '#6b7280' 
+              }}>
+                Chargement des options...
+              </div>
+            ) : variantes && variantes.length > 0 ? (
+              <SelecteurVariantes 
+                variantes={variantes}
+                prixBase={produit.prix}
+                onVarianteChange={setSelectedVariante}
+                selectedVariante={selectedVariante}
+              />
+            ) : (
+              <div style={{ 
+                marginBottom: '24px', 
+                padding: '16px', 
+                backgroundColor: '#fef2f2', 
+                borderRadius: '8px', 
+                border: '1px solid #fecaca',
+                textAlign: 'center'
+              }}>
+                <p style={{ color: '#dc2626', margin: 0, fontWeight: '500' }}>
+                  😭 Toutes les variantes sont épuisées
+                </p>
+              </div>
+            )}
+
+            {/* Stock */}
+            <div style={{ marginBottom: '24px' }}>
+              <p style={{ 
+                fontSize: '14px', 
+                color: '#6b7280', 
+                marginBottom: '8px' 
+              }}>
+                Stock: <span style={{ 
+                  fontWeight: '600', 
+                  color: currentStock > 10 ? '#10b981' : currentStock > 0 ? '#f59e0b' : '#ef4444' 
+                }}>
+                  {currentStock > 10 
+                    ? `${currentStock} disponible${currentStock > 1 ? 's' : ''}` 
+                    : currentStock > 0 
+                      ? `Plus que ${currentStock} !` 
+                      : 'Stock épuisé'
+                  }
+                </span>
+              </p>
             </div>
 
-            {/* Variantes */}
-            {variantes && variantes.length > 0 ? (
+            {/* Quantité - seulement si pas de variantes ou variante sélectionnée */}
+            {(variantes.length === 0 || selectedVariante) && currentStock > 0 && (
               <div style={{ marginBottom: '24px' }}>
-                <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', marginBottom: '16px' }}>Options disponibles</h3>
-                <ProductVariants 
-                  produitId={produit.id}
-                  variantes={variantes}
-                  onVariantChange={handleVariantChange}
-                />
-              </div>
-            ) : (
-              <div style={{ marginBottom: '24px', padding: '16px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <p style={{ color: '#6b7280', margin: 0 }}>Aucune variante disponible pour ce produit</p>
-                  {user?.role === 'VENDEUR' && (
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button
-                        onClick={() => navigate(`/vendeur/produits/${produit.id}/variantes`)}
-                        style={{
-                          padding: '6px 12px',
-                          backgroundColor: '#2563eb',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '6px',
-                          fontSize: '12px',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        Gérer variantes
-                      </button>
-                    </div>
-                  )}
+                <label style={{ 
+                  display: 'block', 
+                  fontSize: '14px', 
+                  fontWeight: '600', 
+                  color: '#374151', 
+                  marginBottom: '8px' 
+                }}>
+                  Quantité
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <button
+                    onClick={() => setQuantite(Math.max(1, quantite - 1))}
+                    disabled={quantite <= 1}
+                    style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '8px',
+                      border: '1px solid #e5e7eb',
+                      backgroundColor: 'white',
+                      cursor: quantite <= 1 ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      opacity: quantite <= 1 ? 0.5 : 1
+                    }}
+                  >
+                    <Minus size={16} />
+                  </button>
+                  <span style={{ 
+                    fontSize: '18px', 
+                    fontWeight: '600', 
+                    minWidth: '40px', 
+                    textAlign: 'center' 
+                  }}>
+                    {quantite}
+                  </span>
+                  <button
+                    onClick={() => setQuantite(Math.min(currentStock, quantite + 1))}
+                    disabled={quantite >= currentStock}
+                    style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '8px',
+                      border: '1px solid #e5e7eb',
+                      backgroundColor: 'white',
+                      cursor: quantite >= currentStock ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      opacity: quantite >= currentStock ? 0.5 : 1
+                    }}
+                  >
+                    <Plus size={16} />
+                  </button>
                 </div>
               </div>
             )}
@@ -295,87 +489,21 @@ export default function DetailProduit() {
               </Link>
             )}
 
-            {/* Livraison */}
-            {produit.boutique?.livraison && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', backgroundColor: '#ecfdf5', borderRadius: '12px', marginBottom: '24px' }}>
-                <Truck size={24} color="#10b981" />
-                <div>
-                  <p style={{ fontSize: '14px', fontWeight: '600', color: '#059669' }}>Livraison disponible</p>
-                  <p style={{ fontSize: '13px', color: '#047857' }}>Frais: {(produit.boutique.fraisLivraison || 0).toLocaleString()} FCFA</p>
-                </div>
-              </div>
-            )}
-
-            {/* Stock */}
-            <div style={{ marginBottom: '24px' }}>
-              <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '8px' }}>
-                Stock: <span style={{ fontWeight: '600', color: (selectedVariante ? selectedVariante.stock : (produit.quantiteStock || produit.stock || 0)) > 10 ? '#10b981' : '#ef4444' }}>
-                  {selectedVariante ? selectedVariante.stock : (produit.quantiteStock || produit.stock || 0)} disponible{(selectedVariante ? selectedVariante.stock : (produit.quantiteStock || produit.stock || 0)) > 1 ? 's' : ''}
-                </span>
-              </p>
-            </div>
-
-            {/* Quantité - seulement si pas de variantes */}
-            {variantes.length === 0 && (
-              <div style={{ marginBottom: '24px' }}>
-                <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '8px' }}>
-                  Quantité
-                </label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <button
-                    onClick={() => setQuantite(Math.max(1, quantite - 1))}
-                    disabled={quantite <= 1}
-                    style={{
-                      width: '40px',
-                      height: '40px',
-                      borderRadius: '8px',
-                      border: '1px solid #e5e7eb',
-                      backgroundColor: 'white',
-                      cursor: quantite <= 1 ? 'not-allowed' : 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}
-                  >
-                    <Minus size={16} />
-                  </button>
-                  <span style={{ fontSize: '18px', fontWeight: '600', minWidth: '40px', textAlign: 'center' }}>{quantite}</span>
-                  <button
-                    onClick={() => setQuantite(Math.min((produit.quantiteStock || produit.stock || 0), quantite + 1))}
-                    disabled={quantite >= (produit.quantiteStock || produit.stock || 0)}
-                    style={{
-                      width: '40px',
-                      height: '40px',
-                      borderRadius: '8px',
-                      border: '1px solid #e5e7eb',
-                      backgroundColor: 'white',
-                      cursor: quantite >= (produit.quantiteStock || produit.stock || 0) ? 'not-allowed' : 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}
-                  >
-                    <Plus size={16} />
-                  </button>
-                </div>
-              </div>
-            )}
-
             {/* Actions */}
             <div style={{ display: 'flex', gap: '12px' }}>
               <button
                 onClick={handleAddToCart}
-                disabled={!produit.disponible || (variantes.length > 0 && !selectedVariante) || (selectedVariante && selectedVariante.stock === 0)}
+                disabled={!canAddToCart}
                 style={{
                   flex: 1,
                   padding: '16px',
-                  backgroundColor: (produit.disponible && (variantes.length === 0 || selectedVariante) && (!selectedVariante || selectedVariante.stock > 0)) ? '#2563eb' : '#9ca3af',
+                  backgroundColor: canAddToCart ? '#2563eb' : '#9ca3af',
                   color: 'white',
                   border: 'none',
                   borderRadius: '12px',
                   fontSize: '16px',
                   fontWeight: '600',
-                  cursor: (produit.disponible && (variantes.length === 0 || selectedVariante) && (!selectedVariante || selectedVariante.stock > 0)) ? 'pointer' : 'not-allowed',
+                  cursor: canAddToCart ? 'pointer' : 'not-allowed',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -384,8 +512,8 @@ export default function DetailProduit() {
               >
                 <ShoppingCart size={20} />
                 {!produit.disponible ? 'Indisponible' : 
-                 variantes.length > 0 && !selectedVariante ? 'Sélectionnez une variante' :
-                 selectedVariante && selectedVariante.stock === 0 ? 'Stock épuisé' :
+                 currentStock === 0 ? 'Stock épuisé' :
+                 variantes.length > 0 && !selectedVariante ? 'Sélectionnez les options' :
                  'Ajouter au panier'}
               </button>
               <button

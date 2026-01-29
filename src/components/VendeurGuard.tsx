@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store';
 import { vendorService } from '../services/api';
 import { StatutCompteVendeur, StatutBoutique } from '../types';
@@ -25,6 +25,7 @@ const LoadingSpinner = () => (
 export const VendeurGuard: React.FC = () => {
   const { user } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isLoading, setIsLoading] = useState(true);
   const [debugInfo, setDebugInfo] = useState('');
 
@@ -55,68 +56,25 @@ export const VendeurGuard: React.FC = () => {
             navigate('/vendeur/compte-suspendu');
             break;
           case StatutCompteVendeur.COMPTE_VALIDE:
-            setDebugInfo('Compte validé, vérification boutique...');
-            // Permettre l'accès direct au guide
-            const currentPath = window.location.pathname;
-            if (currentPath === '/vendeur/guide') {
-              setIsLoading(false);
+            // Si on est sur /vendeur ou /, rediriger vers dashboard
+            if (location.pathname === '/vendeur' || location.pathname === '/') {
+              navigate('/vendeur/dashboard', { replace: true });
               return;
             }
-            
-            // Vérifier le statut de la boutique pour les autres pages
-            try {
-              const boutiqueResponse = await vendorService.getBoutique();
-              const data = boutiqueResponse.data;
-              
-              setDebugInfo(`Réponse boutique: ${JSON.stringify(data)}`);
-              
-              // Nouveau format: {boutique: null, message: "..."} ou directement la boutique
-              if (data.boutique === null || !data.id) {
-                setDebugInfo('Pas de boutique - redirection vers création');
-                // SEULEMENT rediriger si on n'est pas déjà sur une page de création
-                const currentPath = window.location.pathname;
-                if (!currentPath.includes('/creer-boutique')) {
-                  navigate('/vendeur/creer-boutique-status');
-                }
-              } else {
-                const boutique = data.boutique || data;
-                setDebugInfo(`Boutique trouvée: ${boutique.statut}`);
-                switch (boutique.statut) {
-                  case StatutBoutique.BROUILLON:
-                    navigate('/vendeur/completer-boutique');
-                    break;
-                  case StatutBoutique.EN_ATTENTE_APPROBATION:
-                    navigate('/vendeur/boutique-en-attente');
-                    break;
-                  case StatutBoutique.REJETEE:
-                    navigate('/vendeur/boutique-rejetee');
-                    break;
-                  case StatutBoutique.ACTIVE:
-                    // Continuer normalement
-                    break;
-                }
-              }
-            } catch (error: any) {
-              setDebugInfo(`Erreur boutique: ${error.response?.status}`);
-              // Erreur 400 = pas de boutique (backend pas encore fixé)
-              if (error.response?.status === 400) {
-                const currentPath = window.location.pathname;
-                if (!currentPath.includes('/creer-boutique')) {
-                  navigate('/vendeur/creer-boutique-status');
-                }
-              } else {
-                console.error('Erreur API boutique:', error);
-                const currentPath = window.location.pathname;
-                if (!currentPath.includes('/creer-boutique')) {
-                  navigate('/vendeur/creer-boutique-status');
-                }
-              }
-            }
+            // Sinon, laisser accéder à la page demandée
             break;
         }
       } catch (error: any) {
         setDebugInfo(`Erreur statut: ${error.code || error.message}`);
         console.error('Erreur lors de la vérification du statut:', error);
+        
+        // Si l'endpoint n'existe pas (404), continuer en mode dégradé
+        if (error.response?.status === 404) {
+          setDebugInfo('Endpoint statut-compte non implémenté - Mode dégradé');
+          console.warn('Endpoint /api/vendeur/statut-compte non implémenté, accès autorisé');
+          setIsLoading(false);
+          return;
+        }
         
         // Si c'est une erreur de connexion (backend non démarré), permettre l'accès en mode dégradé
         if (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK' || error.message?.includes('aborted')) {
