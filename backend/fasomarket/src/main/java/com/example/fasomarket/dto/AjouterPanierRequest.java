@@ -9,6 +9,7 @@ public class AjouterPanierRequest {
     private String couleurSelectionnee;
     private String tailleSelectionnee;
     private String modeleSelectionne;
+    private Long varianteId;
     private Map<String, String> optionsPersonnalisees;
 
     public AjouterPanierRequest() {}
@@ -28,6 +29,9 @@ public class AjouterPanierRequest {
 
     public String getModeleSelectionne() { return modeleSelectionne; }
     public void setModeleSelectionne(String modeleSelectionne) { this.modeleSelectionne = modeleSelectionne; }
+
+    public Long getVarianteId() { return varianteId; }
+    public void setVarianteId(Long varianteId) { this.varianteId = varianteId; }
 
     public Map<String, String> getOptionsPersonnalisees() { return optionsPersonnalisees; }
     public void setOptionsPersonnalisees(Map<String, String> optionsPersonnalisees) { this.optionsPersonnalisees = optionsPersonnalisees; }

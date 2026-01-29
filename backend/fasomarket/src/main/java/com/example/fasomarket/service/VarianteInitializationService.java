@@ -117,7 +117,7 @@ public class VarianteInitializationService {
         variante.setCouleur(color);
         variante.setTaille(size);
         variante.setModele(model != null ? model : "Standard");
-        variante.setPrixAjustement(BigDecimal.ZERO);
+        variante.setPrixAjustement(0.0);
         variante.setStock(product.getStockQuantity() != null ? product.getStockQuantity() / Math.max(1, getTotalVariantes(product)) : 10);
         variante.setSku(generateSku(product, color, size, model));
 
@@ -130,7 +130,7 @@ public class VarianteInitializationService {
         variante.setCouleur("Standard");
         variante.setTaille("Unique");
         variante.setModele("Standard");
-        variante.setPrixAjustement(BigDecimal.ZERO);
+        variante.setPrixAjustement(0.0);
         variante.setStock(product.getStockQuantity() != null ? product.getStockQuantity() : 10);
         variante.setSku(generateSku(product, "Standard", "Unique", "Standard"));
 

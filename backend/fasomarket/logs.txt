@@ -1,0 +1,101 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] -----------------------< com.example:fasomarket >-----------------------
+[INFO] Building fasomarket 0.0.1-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] >>> spring-boot:4.0.1:run (default-cli) > test-compile @ fasomarket >>>
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ fasomarket ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] Copying 4 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.14.1:compile (default-compile) @ fasomarket ---
+[INFO] Recompiling the module because of added or removed source files.
+[INFO] Compiling 145 source files with javac [debug parameters release 21] to target\classes
+[INFO] /c:/SiteCommercial/backend/fasomarket/src/main/java/com/example/fasomarket/service/PaymentService.java: c:\SiteCommercial\backend\fasomarket\src\main\java\com\example\fasomarket\service\PaymentService.java uses unchecked or unsafe operations.
+[INFO] /c:/SiteCommercial/backend/fasomarket/src/main/java/com/example/fasomarket/service/PaymentService.java: Recompile with -Xlint:unchecked for details.
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ fasomarket ---
+[INFO] skip non existing resourceDirectory c:\SiteCommercial\backend\fasomarket\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.14.1:testCompile (default-testCompile) @ fasomarket ---
+[INFO] Recompiling the module because of changed dependency.
+[INFO] Compiling 1 source file with javac [debug parameters release 21] to target\test-classes
+[INFO] 
+[INFO] <<< spring-boot:4.0.1:run (default-cli) < test-compile @ fasomarket <<<
+[INFO] 
+[INFO] 
+[INFO] --- spring-boot:4.0.1:run (default-cli) @ fasomarket ---
+[INFO] Attaching agents: []
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v4.0.1)
+
+2026-01-29T09:01:25.304Z  INFO 34804 --- [fasomarket] [           main] c.e.fasomarket.FasomarketApplication     : Starting FasomarketApplication using Java 21.0.9 with PID 34804 (C:\SiteCommercial\backend\fasomarket\target\classes started by ELITE BOOK in c:\SiteCommercial\backend\fasomarket)
+2026-01-29T09:01:25.312Z  INFO 34804 --- [fasomarket] [           main] c.e.fasomarket.FasomarketApplication     : No active profile set, falling back to 1 default profile: "default"
+2026-01-29T09:01:26.825Z  INFO 34804 --- [fasomarket] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-01-29T09:01:26.979Z  INFO 34804 --- [fasomarket] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 139 ms. Found 15 JPA repository interfaces.
+2026-01-29T09:01:27.988Z  INFO 34804 --- [fasomarket] [           main] o.s.boot.tomcat.TomcatWebServer          : Tomcat initialized with port 8081 (http)
+2026-01-29T09:01:28.020Z  INFO 34804 --- [fasomarket] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-01-29T09:01:28.020Z  INFO 34804 --- [fasomarket] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/11.0.15]
+2026-01-29T09:01:28.203Z  INFO 34804 --- [fasomarket] [           main] b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 2804 ms
+2026-01-29T09:01:28.488Z  INFO 34804 --- [fasomarket] [           main] org.hibernate.orm.jpa                    : HHH008540: Processing PersistenceUnitInfo [name: default]
+2026-01-29T09:01:28.637Z  INFO 34804 --- [fasomarket] [           main] org.hibernate.orm.core                   : HHH000001: Hibernate ORM core version 7.2.0.Final
+2026-01-29T09:01:29.449Z  INFO 34804 --- [fasomarket] [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-01-29T09:01:29.991Z  WARN 34804 --- [fasomarket] [           main] org.hibernate.orm.deprecation            : HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2026-01-29T09:01:30.041Z  INFO 34804 --- [fasomarket] [           main] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+	Database JDBC URL [jdbc:postgresql://localhost:5433/fasomarket]
+	Database driver: PostgreSQL JDBC Driver
+	Database dialect: PostgreSQLDialect
+	Database version: 13.23
+	Default catalog/schema: fasomarket/public
+	Autocommit mode: undefined/unknown
+	Isolation level: READ_COMMITTED [default READ_COMMITTED]
+	JDBC fetch size: none
+	Pool: DataSourceConnectionProvider
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-01-29T09:01:31.949Z  INFO 34804 --- [fasomarket] [           main] org.hibernate.orm.core                   : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-01-29T09:01:31.953Z  INFO 34804 --- [fasomarket] [           main] org.hibernate.orm.jdbc.batch             : HHH100501: Automatic JDBC statement batching enabled (maximum batch size 20)
+2026-01-29T09:01:32.166Z  INFO 34804 --- [fasomarket] [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-01-29T09:01:32.325Z  INFO 34804 --- [fasomarket] [           main] o.s.d.j.r.query.QueryEnhancerFactories   : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-01-29T09:01:35.527Z  WARN 34804 --- [fasomarket] [           main] ConfigServletWebServerApplicationContext : Exception encountered during context initialization - cancelling refresh attempt: org.springframework.context.ApplicationContextException: Failed to start bean 'webServerStartStop'
+2026-01-29T09:01:35.532Z  INFO 34804 --- [fasomarket] [           main] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-01-29T09:01:35.560Z  INFO 34804 --- [fasomarket] [           main] .s.b.a.l.ConditionEvaluationReportLogger : 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2026-01-29T09:01:35.580Z ERROR 34804 --- [fasomarket] [           main] o.s.b.d.LoggingFailureAnalysisReporter   : 
+
+***************************
+APPLICATION FAILED TO START
+***************************
+
+Description:
+
+Web server failed to start. Port 8081 was already in use.
+
+Action:
+
+Identify and stop the process that's listening on port 8081 or configure this application to listen on another port.
+
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  28.218 s
+[INFO] Finished at: 2026-01-29T09:01:36Z
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.springframework.boot:spring-boot-maven-plugin:4.0.1:run (default-cli) on project fasomarket: Process terminated with exit code: 1 -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoExecutionException

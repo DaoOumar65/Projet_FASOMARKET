@@ -26,6 +26,9 @@ public class OrderService {
     @Autowired
     private OrderNotificationService orderNotificationService;
 
+    @Autowired
+    private ProduitVarianteService produitVarianteService;
+
     @Transactional
     public void recalculerTotauxCommandes() {
         List<Order> ordersWithZeroTotal = orderRepository.findByTotalAmount(BigDecimal.ZERO);
@@ -79,15 +82,30 @@ public class OrderService {
 
         BigDecimal total = BigDecimal.ZERO;
         for (Cart item : items) {
-            BigDecimal itemTotal = item.getProduct().getPrice()
-                    .multiply(BigDecimal.valueOf(item.getQuantity()));
+            BigDecimal prixUnitaire = item.getProduct().getPrice();
+
+            // Ajouter le prix d'ajustement de la variante si présente
+            if (item.getVarianteId() != null) {
+                try {
+                    ProduitVariante variante = produitVarianteService.getVarianteById(item.getVarianteId().toString());
+                    prixUnitaire = prixUnitaire.add(BigDecimal.valueOf(variante.getPrixAjustement()));
+                } catch (Exception e) {
+                    // Ignorer si variante non trouvée
+                }
+            }
+
+            BigDecimal itemTotal = prixUnitaire.multiply(BigDecimal.valueOf(item.getQuantity()));
             total = total.add(itemTotal);
 
             OrderItem orderItem = new OrderItem();
             orderItem.setOrder(order);
             orderItem.setProduct(item.getProduct());
             orderItem.setQuantity(item.getQuantity());
-            orderItem.setUnitPrice(item.getProduct().getPrice());
+            orderItem.setUnitPrice(prixUnitaire);
+            orderItem.setVarianteId(item.getVarianteId());
+            orderItem.setSelectedColor(item.getSelectedColor());
+            orderItem.setSelectedSize(item.getSelectedSize());
+            orderItem.setSelectedModel(item.getSelectedModel());
             order.getOrderItems().add(orderItem);
         }
 
@@ -189,6 +207,12 @@ public class OrderService {
                 article.put("prixUnitaire", item.getUnitPrice());
                 article.put("prixTotal", item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
                 article.put("nomBoutique", item.getProduct().getShop().getName());
+
+                // Ajouter les infos de variante
+                article.put("varianteId", item.getVarianteId());
+                article.put("couleurSelectionnee", item.getSelectedColor());
+                article.put("tailleSelectionnee", item.getSelectedSize());
+                article.put("modeleSelectionne", item.getSelectedModel());
                 articles.add(article);
             }
         }

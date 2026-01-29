@@ -17,6 +17,7 @@ public class ProduitResponse {
     private BigDecimal prix;
     private Integer quantiteStock;
     private Boolean actif;
+    private String status; // Statut du produit (ACTIVE, HIDDEN, BLOCKED, etc.)
     private String images;
     private List<String> imagesList;
     private String sku;
@@ -26,6 +27,7 @@ public class ProduitResponse {
     private BigDecimal remise;
     private BigDecimal note;
     private Integer nombreAvis;
+    private Integer nombreVentes;
     private Boolean disponible;
     private LocalDateTime dateCreation;
     private LocalDateTime dateModification;
@@ -74,6 +76,9 @@ public class ProduitResponse {
     public Boolean getActif() { return actif; }
     public void setActif(Boolean actif) { this.actif = actif; }
 
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+
     public String getImages() { return images; }
     public void setImages(String images) { this.images = images; }
     
@@ -100,6 +105,9 @@ public class ProduitResponse {
 
     public Integer getNombreAvis() { return nombreAvis; }
     public void setNombreAvis(Integer nombreAvis) { this.nombreAvis = nombreAvis; }
+
+    public Integer getNombreVentes() { return nombreVentes; }
+    public void setNombreVentes(Integer nombreVentes) { this.nombreVentes = nombreVentes; }
 
     public Boolean getDisponible() { return disponible; }
     public void setDisponible(Boolean disponible) { this.disponible = disponible; }

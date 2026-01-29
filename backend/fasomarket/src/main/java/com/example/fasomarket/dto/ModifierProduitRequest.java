@@ -16,13 +16,16 @@ public class ModifierProduitRequest {
     private Integer quantiteStock;
     
     private String images;
+    private java.util.List<String> imagesList;
     private String sku;
     private BigDecimal poids;
     private String dimensions;
     private String tags;
     private BigDecimal remise;
     private Boolean actif;
-    private String status;
+    private String status; // ACTIVE, HIDDEN
+    private String colors;
+    private String sizes;
 
     public ModifierProduitRequest() {}
 
@@ -67,6 +70,14 @@ public class ModifierProduitRequest {
     public String getImages() { return images; }
     public void setImages(String images) { this.images = images; }
 
+    public java.util.List<String> getImagesList() { return imagesList; }
+    public void setImagesList(java.util.List<String> imagesList) { 
+        this.imagesList = imagesList;
+        if (imagesList != null && !imagesList.isEmpty()) {
+            this.images = String.join(",", imagesList);
+        }
+    }
+
     public String getSku() { return sku; }
     public void setSku(String sku) { this.sku = sku; }
 
@@ -87,4 +98,10 @@ public class ModifierProduitRequest {
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+
+    public String getColors() { return colors; }
+    public void setColors(String colors) { this.colors = colors; }
+
+    public String getSizes() { return sizes; }
+    public void setSizes(String sizes) { this.sizes = sizes; }
 }

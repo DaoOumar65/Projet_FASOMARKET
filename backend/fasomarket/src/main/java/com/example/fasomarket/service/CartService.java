@@ -45,8 +45,31 @@ public class CartService {
             throw new RuntimeException("Produit non disponible");
         }
 
-        if (product.getStockQuantity() < request.getQuantite()) {
-            throw new RuntimeException("Stock insuffisant");
+        // Gérer les variantes si spécifiées
+        ProduitVariante variante = null;
+        BigDecimal prixUnitaire = product.getPrice();
+        int stockDisponible = product.getStockQuantity();
+        
+        if (request.getVarianteId() != null) {
+            variante = produitVarianteRepository.findById(request.getVarianteId())
+                    .orElseThrow(() -> new RuntimeException("Variante non trouvée"));
+            
+            if (!variante.getProduit().getId().equals(product.getId())) {
+                throw new RuntimeException("Variante ne correspond pas au produit");
+            }
+            
+            prixUnitaire = product.getPrice().add(BigDecimal.valueOf(variante.getPrixAjustement()));
+            stockDisponible = variante.getStock();
+            
+            // Vérifier le stock de la variante
+            if (stockDisponible < request.getQuantite()) {
+                throw new RuntimeException("Stock insuffisant pour cette variante");
+            }
+        } else {
+            // Vérifier le stock du produit principal
+            if (stockDisponible < request.getQuantite()) {
+                throw new RuntimeException("Stock insuffisant");
+            }
         }
 
         // Vérifier si le produit est déjà dans le panier avec les mêmes options
@@ -54,14 +77,15 @@ public class CartService {
                 .filter(cart -> 
                     java.util.Objects.equals(cart.getSelectedColor(), request.getCouleurSelectionnee()) &&
                     java.util.Objects.equals(cart.getSelectedSize(), request.getTailleSelectionnee()) &&
-                    java.util.Objects.equals(cart.getSelectedModel(), request.getModeleSelectionne())
+                    java.util.Objects.equals(cart.getSelectedModel(), request.getModeleSelectionne()) &&
+                    java.util.Objects.equals(cart.getVarianteId(), request.getVarianteId())
                 )
                 .orElse(null);
 
         if (existingCart != null) {
             // Augmenter la quantité
             int newQuantity = existingCart.getQuantity() + request.getQuantite();
-            if (product.getStockQuantity() < newQuantity) {
+            if (stockDisponible < newQuantity) {
                 throw new RuntimeException("Stock insuffisant pour cette quantité");
             }
             existingCart.setQuantity(newQuantity);
@@ -72,6 +96,7 @@ public class CartService {
             cart.setSelectedColor(request.getCouleurSelectionnee());
             cart.setSelectedSize(request.getTailleSelectionnee());
             cart.setSelectedModel(request.getModeleSelectionne());
+            cart.setVarianteId(request.getVarianteId());
             
             // Options personnalisées en JSON
             if (request.getOptionsPersonnalisees() != null && !request.getOptionsPersonnalisees().isEmpty()) {
@@ -86,7 +111,8 @@ public class CartService {
                 .filter(cart -> 
                     java.util.Objects.equals(cart.getSelectedColor(), request.getCouleurSelectionnee()) &&
                     java.util.Objects.equals(cart.getSelectedSize(), request.getTailleSelectionnee()) &&
-                    java.util.Objects.equals(cart.getSelectedModel(), request.getModeleSelectionne())
+                    java.util.Objects.equals(cart.getSelectedModel(), request.getModeleSelectionne()) &&
+                    java.util.Objects.equals(cart.getVarianteId(), request.getVarianteId())
                 )
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("Erreur lors de l'ajout au panier"));

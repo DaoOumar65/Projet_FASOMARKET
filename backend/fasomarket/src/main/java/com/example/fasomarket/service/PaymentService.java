@@ -31,6 +31,9 @@ public class PaymentService {
     @Autowired
     private OrderNotificationService orderNotificationService;
 
+    @Autowired
+    private ProduitVarianteService produitVarianteService;
+
     @Value("${payment.test.public-key}")
     private String testPublicKey;
 
@@ -71,10 +74,13 @@ public class PaymentService {
             throw new RuntimeException("Cette commande ne peut pas être payée");
         }
 
+        // Calculer le montant total avec les variantes
+        BigDecimal montantTotal = calculerMontantAvecVariantes(order);
+        
         // MODE TEST UNIQUEMENT - Créer transaction FedaPay
         Map<String, Object> transactionData = new HashMap<>();
         transactionData.put("description", "[TEST] Commande FasoMarket #" + order.getId().toString().substring(0, 8));
-        transactionData.put("amount", order.getTotalAmount().multiply(new BigDecimal("100")).intValue());
+        transactionData.put("amount", montantTotal.multiply(new BigDecimal("100")).intValue());
         transactionData.put("currency", Map.of("iso", "XOF"));
         transactionData.put("callback_url", successUrl + "?order=" + order.getId());
         transactionData.put("cancel_url", cancelUrl + "?order=" + order.getId());
@@ -157,5 +163,28 @@ public class PaymentService {
 
     public List<Payment> obtenirPaiementsClient(UUID clientId) {
         return paymentRepository.findByOrderClientIdOrderByCreatedAtDesc(clientId);
+    }
+    
+    private BigDecimal calculerMontantAvecVariantes(Order order) {
+        BigDecimal total = BigDecimal.ZERO;
+        
+        for (OrderItem item : order.getOrderItems()) {
+            BigDecimal prixUnitaire = item.getProduct().getPrice();
+            
+            // Ajouter l'ajustement de prix de la variante
+            if (item.getVarianteId() != null) {
+                try {
+                    ProduitVariante variante = produitVarianteService.getVarianteById(item.getVarianteId().toString());
+                    prixUnitaire = prixUnitaire.add(BigDecimal.valueOf(variante.getPrixAjustement()));
+                } catch (Exception e) {
+                    // Utiliser le prix de base si variante non trouvée
+                }
+            }
+            
+            BigDecimal itemTotal = prixUnitaire.multiply(BigDecimal.valueOf(item.getQuantity()));
+            total = total.add(itemTotal);
+        }
+        
+        return total;
     }
 }

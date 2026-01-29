@@ -41,6 +41,9 @@ public class OrderItem {
     @Column(name = "custom_options", columnDefinition = "TEXT")
     private String customOptions;
 
+    @Column(name = "variante_id")
+    private Long varianteId;
+
     // Constructeurs
     public OrderItem() {}
 
@@ -92,4 +95,7 @@ public class OrderItem {
 
     public String getCustomOptions() { return customOptions; }
     public void setCustomOptions(String customOptions) { this.customOptions = customOptions; }
+
+    public Long getVarianteId() { return varianteId; }
+    public void setVarianteId(Long varianteId) { this.varianteId = varianteId; }
 }

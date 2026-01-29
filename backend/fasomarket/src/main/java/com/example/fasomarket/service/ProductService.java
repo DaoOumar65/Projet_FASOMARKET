@@ -30,9 +30,6 @@ public class ProductService {
     @Autowired
     private CategoryRepository categoryRepository;
 
-    @Autowired
-    private StockService stockService;
-
     @Transactional
     public ProduitResponse creerProduit(UUID vendorUserId, CreerProduitRequest request) {
         try {
@@ -178,13 +175,13 @@ public class ProductService {
     }
 
     public ProduitResponse obtenirProduit(UUID produitId) {
-        Product product = productRepository.findById(produitId)
+        Product product = productRepository.findByIdWithAllRelations(produitId)
                 .orElseThrow(() -> new RuntimeException("Produit non trouvé"));
         return mapToResponse(product);
     }
 
     public ProduitResponse obtenirProduit(UUID vendorUserId, UUID produitId) {
-        Product product = productRepository.findById(produitId)
+        Product product = productRepository.findByIdWithAllRelations(produitId)
                 .orElseThrow(() -> new RuntimeException("Produit non trouvé"));
         
         verifierProprietaireBoutique(vendorUserId, product.getShop().getId());
@@ -193,56 +190,97 @@ public class ProductService {
 
     @Transactional
     public ProduitResponse modifierProduit(UUID vendorUserId, UUID produitId, ModifierProduitRequest request) {
-        Product product = productRepository.findById(produitId)
-                .orElseThrow(() -> new RuntimeException("Produit non trouvé"));
+        try {
+            // Charger avec toutes les relations
+            Product product = productRepository.findByIdWithAllRelations(produitId)
+                    .orElseThrow(() -> new RuntimeException("Produit non trouvé"));
 
-        verifierProprietaireBoutique(vendorUserId, product.getShop().getId());
+            // Vérifier la propriété
+            verifierProprietaireBoutique(vendorUserId, product.getShop().getId());
 
-        if (request.getSku() != null && !request.getSku().equals(product.getSku()) &&
+            // Valider SKU si changé
+            if (request.getSku() != null && 
+                !request.getSku().equals(product.getSku()) &&
                 productRepository.existsBySku(request.getSku())) {
-            throw new RuntimeException("Ce SKU est déjà utilisé");
-        }
-
-        if (request.getNom() != null)
-            product.setName(request.getNom());
-        if (request.getDescription() != null)
-            product.setDescription(request.getDescription());
-        if (request.getCategorie() != null)
-            product.setCategory(request.getCategorie());
-        if (request.getPrix() != null)
-            product.setPrice(request.getPrix());
-        if (request.getQuantiteStock() != null)
-            product.setStockQuantity(request.getQuantiteStock());
-        if (request.getImages() != null)
-            product.setImages(request.getImages());
-        if (request.getSku() != null)
-            product.setSku(request.getSku());
-        if (request.getPoids() != null)
-            product.setWeight(request.getPoids());
-        if (request.getDimensions() != null)
-            product.setDimensions(request.getDimensions());
-        if (request.getTags() != null)
-            product.setTags(request.getTags());
-        if (request.getRemise() != null)
-            product.setDiscount(request.getRemise());
-        if (request.getActif() != null)
-            product.setIsActive(request.getActif());
-        if (request.getStatus() != null) {
-            try {
-                ProductStatus status = ProductStatus.valueOf(request.getStatus().toUpperCase());
-                product.setStatus(status);
-            } catch (IllegalArgumentException e) {
-                throw new RuntimeException("Statut invalide: " + request.getStatus());
+                throw new RuntimeException("Ce SKU est déjà utilisé");
             }
-        }
 
-        product = productRepository.save(product);
-        return mapToResponse(product);
+            // Appliquer les modifications avec vérification null
+            if (request.getNom() != null && !request.getNom().trim().isEmpty()) {
+                product.setName(request.getNom());
+            }
+            
+            if (request.getDescription() != null) {
+                product.setDescription(request.getDescription());
+            }
+            
+            if (request.getCategorie() != null && !request.getCategorie().trim().isEmpty()) {
+                product.setCategory(request.getCategorie());
+            }
+            
+            if (request.getPrix() != null && request.getPrix().compareTo(java.math.BigDecimal.ZERO) > 0) {
+                product.setPrice(request.getPrix());
+            }
+            
+            if (request.getQuantiteStock() != null && request.getQuantiteStock() >= 0) {
+                product.setStockQuantity(request.getQuantiteStock());
+                // Mettre à jour la disponibilité
+                product.setAvailable(request.getQuantiteStock() > 0);
+            }
+            
+            if (request.getImages() != null) {
+                product.setImages(request.getImages());
+            }
+            
+            if (request.getSku() != null && !request.getSku().trim().isEmpty()) {
+                product.setSku(request.getSku());
+            }
+            
+            if (request.getPoids() != null) {
+                product.setWeight(request.getPoids());
+            }
+            
+            if (request.getDimensions() != null) {
+                product.setDimensions(request.getDimensions());
+            }
+            
+            if (request.getTags() != null) {
+                product.setTags(request.getTags());
+            }
+            
+            if (request.getRemise() != null) {
+                product.setDiscount(request.getRemise());
+            }
+            
+            if (request.getActif() != null) {
+                product.setIsActive(request.getActif());
+            }
+            
+            if (request.getStatus() != null && !request.getStatus().trim().isEmpty()) {
+                try {
+                    ProductStatus status = ProductStatus.valueOf(request.getStatus().toUpperCase());
+                    product.setStatus(status);
+                } catch (IllegalArgumentException e) {
+                    throw new RuntimeException("Statut invalide: " + request.getStatus());
+                }
+            }
+
+            // Sauvegarder
+            product = productRepository.save(product);
+            
+            // Retourner la réponse
+            return mapToResponse(product);
+            
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RuntimeException("Erreur lors de la modification: " + e.getMessage(), e);
+        }
     }
 
     @Transactional
     public void supprimerProduit(UUID vendorUserId, UUID produitId) {
-        Product product = productRepository.findById(produitId)
+        Product product = productRepository.findByIdWithAllRelations(produitId)
                 .orElseThrow(() -> new RuntimeException("Produit non trouvé"));
 
         verifierProprietaireBoutique(vendorUserId, product.getShop().getId());
@@ -289,56 +327,73 @@ public class ProductService {
         return shop;
     }
 
+    @Transactional(readOnly = true)
     private ProduitResponse mapToResponse(Product product) {
-        ProduitResponse response = new ProduitResponse();
-        response.setId(product.getId());
-        response.setBoutiqueId(product.getShop().getId());
-        response.setNomBoutique(product.getShop().getName());
-        response.setNom(product.getName());
-        response.setDescription(product.getDescription());
-        response.setCategorie(product.getCategory());
-        response.setPrix(product.getPrice());
-        response.setQuantiteStock(product.getStockQuantity());
-        response.setActif(product.getIsActive());
-        response.setImages(product.getImages());
-        
-        // Ajouter l'objet catégorie complet
-        if (product.getCategoryEntity() != null) {
-            java.util.Map<String, Object> catObj = new java.util.HashMap<>();
-            catObj.put("id", product.getCategoryEntity().getId());
-            catObj.put("nom", product.getCategoryEntity().getNom());
-            catObj.put("description", product.getCategoryEntity().getDescription());
-            response.setCategorieObj(catObj);
+        try {
+            ProduitResponse response = new ProduitResponse();
+            response.setId(product.getId());
+            
+            // Shop info avec vérification null
+            if (product.getShop() != null) {
+                response.setBoutiqueId(product.getShop().getId());
+                response.setNomBoutique(product.getShop().getName());
+            }
+            
+            response.setNom(product.getName());
+            response.setDescription(product.getDescription());
+            response.setCategorie(product.getCategory());
+            response.setPrix(product.getPrice());
+            response.setQuantiteStock(product.getStockQuantity());
+            response.setActif(product.getIsActive());
+            response.setImages(product.getImages());
+            
+            // Catégorie entity avec vérification null
+            if (product.getCategoryEntity() != null) {
+                java.util.Map<String, Object> catObj = new java.util.HashMap<>();
+                catObj.put("id", product.getCategoryEntity().getId());
+                catObj.put("nom", product.getCategoryEntity().getNom());
+                catObj.put("description", product.getCategoryEntity().getDescription());
+                response.setCategorieObj(catObj);
+            }
+            
+            // Images list
+            if (product.getImages() != null && !product.getImages().isEmpty()) {
+                response.setImagesList(Arrays.asList(product.getImages().split(",")));
+            } else {
+                response.setImagesList(new ArrayList<>());
+            }
+            
+            // Autres champs
+            response.setSku(product.getSku());
+            response.setPoids(product.getWeight());
+            response.setDimensions(product.getDimensions());
+            response.setTags(product.getTags());
+            response.setRemise(product.getDiscount());
+            response.setNote(product.getRating());
+            response.setNombreAvis(product.getReviewsCount());
+            response.setNombreVentes(product.getNombreVentes() != null ? product.getNombreVentes() : 0);
+            response.setDisponible(product.getAvailable());
+            response.setDateCreation(product.getCreatedAt());
+            response.setDateModification(product.getUpdatedAt());
+            
+            // Détails produits
+            response.setSizes(product.getSizes());
+            response.setColors(product.getColors());
+            response.setCouleur(product.getColor());
+            response.setTaille(product.getSize());
+            response.setMarque(product.getBrand());
+            response.setMateriau(product.getMaterial());
+            response.setOrigine(product.getOrigin());
+            response.setPeriodeGarantie(product.getWarrantyPeriod());
+            response.setPolitiqueRetour(product.getReturnPolicy());
+            
+            return response;
+            
+        } catch (Exception e) {
+            System.err.println("Erreur mapToResponse: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Erreur lors de la conversion du produit", e);
         }
-        
-        if (product.getImages() != null && !product.getImages().isEmpty()) {
-            response.setImagesList(Arrays.asList(product.getImages().split(",")));
-        } else {
-            response.setImagesList(new ArrayList<>());
-        }
-        response.setSku(product.getSku());
-        response.setPoids(product.getWeight());
-        response.setDimensions(product.getDimensions());
-        response.setTags(product.getTags());
-        response.setRemise(product.getDiscount());
-        response.setNote(product.getRating());
-        response.setNombreAvis(product.getReviewsCount());
-        response.setDisponible(product.getAvailable());
-        response.setDateCreation(product.getCreatedAt());
-        response.setDateModification(product.getUpdatedAt());
-        
-        // Détails produits
-        response.setSizes(product.getSizes());
-        response.setColors(product.getColors());
-        response.setCouleur(product.getColor());
-        response.setTaille(product.getSize());
-        response.setMarque(product.getBrand());
-        response.setMateriau(product.getMaterial());
-        response.setOrigine(product.getOrigin());
-        response.setPeriodeGarantie(product.getWarrantyPeriod());
-        response.setPolitiqueRetour(product.getReturnPolicy());
-        
-        return response;
     }
 
     // Méthodes manquantes pour les statistiques
@@ -358,13 +413,16 @@ public class ProductService {
             throw new RuntimeException("La quantité doit être positive");
         }
 
-        Product product = productRepository.findById(produitId)
+        Product product = productRepository.findByIdWithAllRelations(produitId)
                 .orElseThrow(() -> new RuntimeException("Produit non trouvé"));
 
         verifierProprietaireBoutique(vendorUserId, product.getShop().getId());
 
-        // Utiliser StockService pour incrémenter le stock
-        stockService.incrementStock(product, quantite);
+        // Incrémenter le stock directement
+        int currentStock = product.getStockQuantity() != null ? product.getStockQuantity() : 0;
+        product.setStockQuantity(currentStock + quantite);
+        product.setAvailable(product.getStockQuantity() > 0);
+        productRepository.save(product);
 
         // Réactiver le produit s'il était désactivé pour rupture de stock
         if (!product.getAvailable() && product.getStockQuantity() > 0) {

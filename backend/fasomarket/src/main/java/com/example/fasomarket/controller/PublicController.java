@@ -3,6 +3,7 @@ package com.example.fasomarket.controller;
 import com.example.fasomarket.dto.BoutiquePublicDTO;
 import com.example.fasomarket.dto.ProductPublicDTO;
 import com.example.fasomarket.dto.ProduitVarianteDTO;
+import com.example.fasomarket.dto.VariantePublicDTO;
 import com.example.fasomarket.model.*;
 import com.example.fasomarket.repository.*;
 import com.example.fasomarket.service.*;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.math.BigDecimal;
 import java.util.stream.Collectors;
 
 @RestController
@@ -47,7 +49,6 @@ public class PublicController {
                     .collect(Collectors.toList());
             return ResponseEntity.ok(boutiques);
         } catch (Exception e) {
-            e.printStackTrace();
             return ResponseEntity.status(500).body("Erreur: " + e.getMessage());
         }
     }
@@ -111,11 +112,50 @@ public class PublicController {
     }
 
     @GetMapping("/produits/{id}")
-    public ResponseEntity<ProductPublicDTO> getProduit(@PathVariable UUID id) {
-        return productRepository.findByIdAndIsActiveTrue(id)
-                .map(this::convertProductToDTO)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<Map<String, Object>> getProduit(@PathVariable UUID id) {
+        try {
+            Product produit = productRepository.findByIdAndIsActiveTrue(id).orElse(null);
+            if (produit == null) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            Map<String, Object> response = new java.util.HashMap<>();
+            response.put("id", produit.getId());
+            response.put("nom", produit.getName());
+            response.put("description", produit.getDescription());
+            response.put("prix", produit.getPrice());
+            response.put("quantiteStock", produit.getStockQuantity());
+            response.put("category", produit.getCategory());
+            response.put("available", produit.getAvailable());
+            
+            // ✅ Gestion correcte des images
+            if (produit.getImages() != null && !produit.getImages().isEmpty()) {
+                String[] imageUrls = produit.getImages().split(",");
+                List<String> imagesList = java.util.Arrays.stream(imageUrls)
+                    .map(String::trim)
+                    .filter(url -> !url.isEmpty())
+                    .collect(Collectors.toList());
+                response.put("images", imagesList);
+            } else {
+                response.put("images", new java.util.ArrayList<>());
+            }
+            
+            // Boutique info
+            Map<String, Object> boutique = new java.util.HashMap<>();
+            boutique.put("nom", produit.getShop() != null ? produit.getShop().getName() : "MaroShop");
+            boutique.put("id", produit.getShop() != null ? produit.getShop().getId() : null);
+            response.put("boutique", boutique);
+            
+            // Rating et reviews
+            if (produit.getRating() != null) {
+                response.put("rating", produit.getRating().doubleValue());
+            }
+            response.put("reviewsCount", produit.getReviewsCount());
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     // Produits par catégorie
@@ -187,12 +227,15 @@ public class PublicController {
     }
 
     @GetMapping("/produits/{id}/variantes")
-    public ResponseEntity<List<ProduitVarianteDTO>> getProduitVariantes(@PathVariable UUID id) {
+    public ResponseEntity<List<VariantePublicDTO>> getProduitVariantes(@PathVariable UUID id) {
         try {
-            List<ProduitVarianteDTO> variantes = produitVarianteService.getVariantesByProduit(id);
-            return ResponseEntity.ok(variantes);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().build();
+            List<ProduitVariante> variantes = produitVarianteService.getVariantesByProduitId(id.toString());
+            List<VariantePublicDTO> variantesDTO = variantes.stream()
+                    .map(this::convertVarianteToDTO)
+                    .collect(Collectors.toList());
+            return ResponseEntity.ok(variantesDTO);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).build();
         }
     }
 
@@ -211,7 +254,6 @@ public class PublicController {
         dto.setDeliveryFee(shop.getDeliveryFee());
         dto.setRating(shop.getRating());
         dto.setReviewsCount(shop.getReviewsCount());
-        dto.setStatus(shop.getStatus().name());
         return dto;
     }
 
@@ -221,52 +263,44 @@ public class PublicController {
         dto.setName(product.getName());
         dto.setDescription(product.getDescription());
         dto.setPrice(product.getPrice());
-        dto.setStockQuantity(product.getStockQuantity());
+        dto.setImages(product.getImages());
         dto.setCategory(product.getCategory());
-        
-        // Traiter les images - s'assurer qu'elles sont accessibles
-        String images = product.getImages();
-        if (images != null && !images.isEmpty()) {
-            // Si l'image ne commence pas par http, ajouter le préfixe du serveur
-            if (!images.startsWith("http")) {
-                // Vérifier si c'est un chemin local ou juste un nom de fichier
-                if (images.startsWith("uploads/") || images.startsWith("/uploads/")) {
-                    images = "http://localhost:8081/" + images.replaceFirst("^/?", "");
-                } else {
-                    // Si c'est juste un nom de fichier, utiliser le service d'images
-                    images = "http://localhost:8081/api/images/" + images;
-                }
-            }
-        } else {
-            // Image par défaut si aucune image
-            images = "http://localhost:8081/api/images/default-product.jpg";
-        }
-        dto.setImages(images);
-        
-        dto.setStatus(product.getStatus() != null ? product.getStatus().name() : null);
+        dto.setStockQuantity(product.getStockQuantity());
         dto.setAvailable(product.getAvailable());
-        dto.setFeatured(product.getFeatured());
-        dto.setDiscount(product.getDiscount());
-        dto.setRating(product.getRating() != null ? product.getRating().doubleValue() : null);
-        dto.setReviewsCount(product.getReviewsCount());
-        dto.setMinOrderQuantity(product.getMinOrderQuantity());
-        dto.setSalesCount(product.getSalesCount() != null ? product.getSalesCount().intValue() : 0);
-        dto.setViewsCount(product.getViewsCount() != null ? product.getViewsCount().intValue() : 0);
-        dto.setCreatedAt(product.getCreatedAt());
-
-        // Informations de la boutique
-        if (product.getShop() != null) {
-            dto.setShopId(product.getShop().getId());
-            dto.setShopName(product.getShop().getName());
-            dto.setShopLogoUrl(product.getShop().getLogoUrl());
-
-            // Informations du vendeur
-            if (product.getShop().getVendor() != null && product.getShop().getVendor().getUser() != null) {
-                dto.setVendorUserId(product.getShop().getVendor().getUser().getId());
-                dto.setVendorName(product.getShop().getVendor().getUser().getFullName());
-            }
+        if (product.getRating() != null) {
+            dto.setRating(product.getRating().doubleValue());
         }
+        dto.setReviewsCount(product.getReviewsCount());
+        dto.setShopName(product.getShop() != null ? product.getShop().getName() : null);
+        dto.setShopId(product.getShop() != null ? product.getShop().getId() : null);
+        return dto;
+    }
 
+    private VariantePublicDTO convertVarianteToDTO(ProduitVariante variante) {
+        VariantePublicDTO dto = new VariantePublicDTO();
+        dto.setId(variante.getId());
+        dto.setProduitId(variante.getProduit() != null ? variante.getProduit().getId().toString() : null);
+        dto.setCouleur(variante.getCouleur());
+        dto.setTaille(variante.getTaille());
+        dto.setModele(variante.getModele());
+        dto.setPrixAjustement(BigDecimal.valueOf(variante.getPrixAjustement()));
+        dto.setStock(variante.getStock());
+        dto.setSku(variante.getSku());
+        dto.setCreatedAt(variante.getCreatedAt());
+        dto.setUpdatedAt(variante.getUpdatedAt());
+        
+        // Nouvelles variantes
+        dto.setPoids(variante.getPoids());
+        dto.setDimensions(variante.getDimensions());
+        dto.setMateriau(variante.getMateriau());
+        dto.setFinition(variante.getFinition());
+        dto.setCapacite(variante.getCapacite());
+        dto.setPuissance(variante.getPuissance());
+        dto.setParfum(variante.getParfum());
+        dto.setAgeCible(variante.getAgeCible());
+        dto.setGenre(variante.getGenre());
+        dto.setSaison(variante.getSaison());
+        
         return dto;
     }
 }

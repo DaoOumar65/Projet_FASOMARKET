@@ -1,0 +1,417 @@
+package com.example.fasomarket.service;
+
+import com.example.fasomarket.model.Product;
+import com.example.fasomarket.model.ProduitVariante;
+import com.example.fasomarket.model.Category;
+import com.example.fasomarket.repository.CategoryRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+
+@Service
+public class VarianteCategorieService {
+
+    @Autowired
+    private ProduitVarianteService produitVarianteService;
+    
+    @Autowired
+    private CategoryRepository categoryRepository;
+    
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    public void genererVariantesParCategorie(Product product) {
+        String categorie = product.getCategory();
+        if (categorie == null) {
+            genererVariantesStandard(product);
+            return;
+        }
+
+        // Essayer d'abord la configuration dynamique
+        if (genererVariantesDepuisConfig(product)) {
+            return; // Configuration trouvée et appliquée
+        }
+        
+        // Fallback sur les configurations codées en dur
+        switch (categorie.toLowerCase()) {
+            case "mode":
+            case "vêtements":
+                genererVariantesVetements(product);
+                break;
+            case "electronique":
+                genererVariantesElectronique(product);
+                break;
+            case "cosmétiques":
+            case "beauté":
+                genererVariantesCosmetiques(product);
+                break;
+            case "alimentaire":
+                genererVariantesAlimentaire(product);
+                break;
+            case "maison":
+            case "décoration":
+                genererVariantesMaison(product);
+                break;
+            case "sport":
+                genererVariantesSport(product);
+                break;
+            case "santé":
+                genererVariantesSante(product);
+                break;
+            case "automobile":
+                genererVariantesAutomobile(product);
+                break;
+            case "livres":
+                genererVariantesLivres(product);
+                break;
+            case "jouets":
+                genererVariantesJouets(product);
+                break;
+            default:
+                // FALLBACK: Pour toute nouvelle catégorie non prévue
+                System.out.println("⚠️ Catégorie non reconnue: " + categorie + " - Génération de variantes standard");
+                genererVariantesStandard(product);
+        }
+    }
+    
+    /**
+     * Génère les variantes depuis la configuration JSON stockée en base
+     */
+    private boolean genererVariantesDepuisConfig(Product product) {
+        try {
+            // Trouver la catégorie en base
+            Category category = categoryRepository.findByNameIgnoreCase(product.getCategory()).orElse(null);
+            if (category == null || category.getVariantConfig() == null) {
+                return false;
+            }
+            
+            // Parser la configuration JSON
+            JsonNode config = objectMapper.readTree(category.getVariantConfig());
+            
+            // Générer les variantes selon la config
+            genererVariantesDepuisJSON(product, config);
+            
+            return true;
+        } catch (Exception e) {
+            System.err.println("Erreur lors de la génération depuis config: " + e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Génère les variantes à partir d'une configuration JSON
+     */
+    private void genererVariantesDepuisJSON(Product product, JsonNode config) {
+        try {
+            JsonNode variants = config.get("variants");
+            if (variants == null || !variants.isArray()) {
+                genererVariantesStandard(product);
+                return;
+            }
+            
+            int stockParVariante = Math.max(1, product.getStockQuantity() / variants.size());
+            
+            for (JsonNode variant : variants) {
+                ProduitVariante variante = new ProduitVariante();
+                variante.setProduit(product);
+                
+                // Appliquer les champs depuis la config
+                if (variant.has("couleur")) variante.setCouleur(variant.get("couleur").asText());
+                if (variant.has("taille")) variante.setTaille(variant.get("taille").asText());
+                if (variant.has("modele")) variante.setModele(variant.get("modele").asText());
+                if (variant.has("materiau")) variante.setMateriau(variant.get("materiau").asText());
+                if (variant.has("finition")) variante.setFinition(variant.get("finition").asText());
+                if (variant.has("capacite")) variante.setCapacite(variant.get("capacite").asText());
+                if (variant.has("puissance")) variante.setPuissance(variant.get("puissance").asText());
+                if (variant.has("parfum")) variante.setParfum(variant.get("parfum").asText());
+                if (variant.has("ageCible")) variante.setAgeCible(variant.get("ageCible").asText());
+                if (variant.has("genre")) variante.setGenre(variant.get("genre").asText());
+                if (variant.has("saison")) variante.setSaison(variant.get("saison").asText());
+                if (variant.has("poids")) variante.setPoids(new BigDecimal(variant.get("poids").asText()));
+                if (variant.has("dimensions")) variante.setDimensions(variant.get("dimensions").asText());
+                
+                // Prix et stock
+                BigDecimal prixAjustement = variant.has("prixAjustement") ? 
+                    new BigDecimal(variant.get("prixAjustement").asText()) : BigDecimal.ZERO;
+                variante.setPrixAjustement(prixAjustement);
+                variante.setStock(stockParVariante);
+                
+                // Générer SKU
+                String attr1 = variant.has("couleur") ? variant.get("couleur").asText() : "STD";
+                String attr2 = variant.has("taille") ? variant.get("taille").asText() : 
+                              variant.has("capacite") ? variant.get("capacite").asText() : "STD";
+                variante.setSku(genererSKU(product, attr1, attr2));
+                
+                produitVarianteService.creerVariante(variante);
+            }
+        } catch (Exception e) {
+            System.err.println("Erreur génération variantes JSON: " + e.getMessage());
+            genererVariantesStandard(product);
+        }
+    }
+
+    private void genererVariantesVetements(Product product) {
+        String[] couleurs = {"Noir", "Blanc", "Bleu", "Rouge", "Vert"};
+        String[] tailles = {"XS", "S", "M", "L", "XL", "XXL"};
+        String[] genres = {"Homme", "Femme", "Unisexe"};
+        String[] saisons = {"Été", "Hiver", "Mi-saison"};
+
+        int stockParVariante = product.getStockQuantity() / (couleurs.length * tailles.length);
+
+        for (String couleur : couleurs) {
+            for (String taille : tailles) {
+                ProduitVariante variante = new ProduitVariante();
+                variante.setProduit(product);
+                variante.setCouleur(couleur);
+                variante.setTaille(taille);
+                variante.setGenre(genres[0]); // Par défaut
+                variante.setSaison(saisons[2]); // Mi-saison par défaut
+                variante.setPrixAjustement(BigDecimal.ZERO);
+                variante.setStock(Math.max(1, stockParVariante));
+                variante.setSku(genererSKU(product, couleur, taille));
+                
+                produitVarianteService.creerVariante(variante);
+            }
+        }
+    }
+
+    private void genererVariantesElectronique(Product product) {
+        String[] couleurs = {"Noir", "Blanc", "Gris", "Bleu"};
+        String[] capacites = {"64GB", "128GB", "256GB", "512GB", "1TB"};
+        
+        BigDecimal[] ajustementsPrix = {
+            BigDecimal.ZERO,           // 64GB
+            new BigDecimal("25000"),   // 128GB
+            new BigDecimal("50000"),   // 256GB
+            new BigDecimal("100000"),  // 512GB
+            new BigDecimal("150000")   // 1TB
+        };
+
+        int stockParVariante = product.getStockQuantity() / (couleurs.length * capacites.length);
+
+        for (String couleur : couleurs) {
+            for (int i = 0; i < capacites.length; i++) {
+                ProduitVariante variante = new ProduitVariante();
+                variante.setProduit(product);
+                variante.setCouleur(couleur);
+                variante.setCapacite(capacites[i]);
+                variante.setModele("Standard");
+                variante.setPrixAjustement(ajustementsPrix[i]);
+                variante.setStock(Math.max(1, stockParVariante));
+                variante.setSku(genererSKU(product, couleur, capacites[i]));
+                
+                produitVarianteService.creerVariante(variante);
+            }
+        }
+    }
+
+    private void genererVariantesCosmetiques(Product product) {
+        String[] parfums = {"Vanille", "Rose", "Lavande", "Citrus", "Sans parfum"};
+        String[] finitions = {"Mat", "Brillant", "Satiné"};
+        String[] genres = {"Homme", "Femme", "Unisexe"};
+
+        int stockParVariante = product.getStockQuantity() / parfums.length;
+
+        for (String parfum : parfums) {
+            for (String finition : finitions) {
+                ProduitVariante variante = new ProduitVariante();
+                variante.setProduit(product);
+                variante.setParfum(parfum);
+                variante.setFinition(finition);
+                variante.setGenre(genres[1]); // Femme par défaut
+                variante.setPrixAjustement(parfum.equals("Sans parfum") ? 
+                    new BigDecimal("-2000") : BigDecimal.ZERO);
+                variante.setStock(Math.max(1, stockParVariante));
+                variante.setSku(genererSKU(product, parfum, finition));
+                
+                produitVarianteService.creerVariante(variante);
+            }
+        }
+    }
+
+    private void genererVariantesAlimentaire(Product product) {
+        String[] poids = {"500g", "1kg", "2kg", "5kg"};
+        String[] qualites = {"Bio", "Standard", "Premium"};
+        
+        BigDecimal[] ajustementsPrix = {
+            new BigDecimal("2000"),    // Bio
+            BigDecimal.ZERO,           // Standard
+            new BigDecimal("5000")     // Premium
+        };
+
+        int stockParVariante = product.getStockQuantity() / (poids.length * qualites.length);
+
+        for (String poid : poids) {
+            for (int i = 0; i < qualites.length; i++) {
+                ProduitVariante variante = new ProduitVariante();
+                variante.setProduit(product);
+                variante.setPoids(new BigDecimal(poid.replace("kg", "").replace("g", "")));
+                variante.setModele(qualites[i]);
+                variante.setPrixAjustement(ajustementsPrix[i]);
+                variante.setStock(Math.max(1, stockParVariante));
+                variante.setSku(genererSKU(product, poid, qualites[i]));
+                
+                produitVarianteService.creerVariante(variante);
+            }
+        }
+    }
+
+    private void genererVariantesMaison(Product product) {
+        String[] couleurs = {"Blanc", "Noir", "Beige", "Gris", "Marron"};
+        String[] materiaux = {"Bois", "Métal", "Plastique", "Verre", "Tissu"};
+        String[] finitions = {"Mat", "Brillant", "Texturé", "Lisse"};
+
+        int stockParVariante = product.getStockQuantity() / couleurs.length;
+
+        for (String couleur : couleurs) {
+            for (String materiau : materiaux) {
+                ProduitVariante variante = new ProduitVariante();
+                variante.setProduit(product);
+                variante.setCouleur(couleur);
+                variante.setMateriau(materiau);
+                variante.setFinition(finitions[0]); // Mat par défaut
+                variante.setPrixAjustement(materiau.equals("Bois") ? 
+                    new BigDecimal("10000") : BigDecimal.ZERO);
+                variante.setStock(Math.max(1, stockParVariante));
+                variante.setSku(genererSKU(product, couleur, materiau));
+                
+                produitVarianteService.creerVariante(variante);
+            }
+        }
+    }
+
+    private void genererVariantesStandard(Product product) {
+        ProduitVariante variante = new ProduitVariante();
+        variante.setProduit(product);
+        variante.setCouleur("Standard");
+        variante.setTaille("Unique");
+        variante.setModele("Standard");
+        variante.setPrixAjustement(BigDecimal.ZERO);
+        variante.setStock(product.getStockQuantity());
+        variante.setSku(genererSKU(product, "Standard", "Unique"));
+        
+        produitVarianteService.creerVariante(variante);
+    }
+
+    private String genererSKU(Product product, String attr1, String attr2) {
+        String produitPrefix = product.getId().toString().substring(0, 8).toUpperCase();
+        String attr1Prefix = attr1.length() >= 2 ? attr1.substring(0, 2).toUpperCase() : "XX";
+        String attr2Prefix = attr2.length() >= 2 ? attr2.substring(0, 2).toUpperCase() : "XX";
+        
+        // Ajouter un nombre aléatoire et un délai pour éviter les doublons
+        int random = (int)(Math.random() * 10000);
+        long timestamp = System.currentTimeMillis() + random; // Décalage temporel
+        
+        return produitPrefix + "-" + attr1Prefix + "-" + attr2Prefix + "-" + timestamp;
+    }
+
+    // === NOUVELLES CATÉGORIES ===
+    
+    private void genererVariantesSport(Product product) {
+        String[] couleurs = {"Noir", "Blanc", "Rouge", "Bleu", "Vert"};
+        String[] tailles = {"XS", "S", "M", "L", "XL", "XXL"};
+        
+        int stockParVariante = Math.max(1, product.getStockQuantity() / couleurs.length);
+        
+        for (String couleur : couleurs) {
+            ProduitVariante variante = new ProduitVariante();
+            variante.setProduit(product);
+            variante.setCouleur(couleur);
+            variante.setTaille(tailles[2]); // M par défaut
+            variante.setGenre("Unisexe");
+            variante.setPrixAjustement(BigDecimal.ZERO);
+            variante.setStock(stockParVariante);
+            variante.setSku(genererSKU(product, couleur, "Sport"));
+            
+            produitVarianteService.creerVariante(variante);
+        }
+    }
+    
+    private void genererVariantesSante(Product product) {
+        String[] dosages = {"100mg", "200mg", "500mg"};
+        String[] formes = {"Comprimé", "Gélule", "Sirop", "Crème"};
+        
+        int stockParVariante = Math.max(1, product.getStockQuantity() / dosages.length);
+        
+        for (String dosage : dosages) {
+            ProduitVariante variante = new ProduitVariante();
+            variante.setProduit(product);
+            variante.setCapacite(dosage);
+            variante.setModele(formes[0]); // Comprimé par défaut
+            variante.setPrixAjustement(BigDecimal.ZERO);
+            variante.setStock(stockParVariante);
+            variante.setSku(genererSKU(product, dosage, "Santé"));
+            
+            produitVarianteService.creerVariante(variante);
+        }
+    }
+    
+    private void genererVariantesAutomobile(Product product) {
+        String[] marques = {"Universel", "Toyota", "Peugeot", "Nissan"};
+        String[] modeles = {"Standard", "Premium", "Sport"};
+        
+        int stockParVariante = Math.max(1, product.getStockQuantity() / marques.length);
+        
+        for (String marque : marques) {
+            ProduitVariante variante = new ProduitVariante();
+            variante.setProduit(product);
+            variante.setModele(marque);
+            variante.setFinition(modeles[0]); // Standard par défaut
+            variante.setPrixAjustement(marque.equals("Universel") ? 
+                BigDecimal.ZERO : new BigDecimal("5000"));
+            variante.setStock(stockParVariante);
+            variante.setSku(genererSKU(product, marque, "Auto"));
+            
+            produitVarianteService.creerVariante(variante);
+        }
+    }
+    
+    private void genererVariantesLivres(Product product) {
+        String[] formats = {"Broché", "Relié", "Numérique"};
+        String[] langues = {"Français", "Anglais", "Arabe"};
+        
+        BigDecimal[] ajustements = {
+            BigDecimal.ZERO,           // Broché
+            new BigDecimal("3000"),    // Relié
+            new BigDecimal("-2000")    // Numérique
+        };
+        
+        int stockParVariante = Math.max(1, product.getStockQuantity() / formats.length);
+        
+        for (int i = 0; i < formats.length; i++) {
+            ProduitVariante variante = new ProduitVariante();
+            variante.setProduit(product);
+            variante.setModele(formats[i]);
+            variante.setFinition(langues[0]); // Français par défaut
+            variante.setPrixAjustement(ajustements[i]);
+            variante.setStock(stockParVariante);
+            variante.setSku(genererSKU(product, formats[i], "Livre"));
+            
+            produitVarianteService.creerVariante(variante);
+        }
+    }
+    
+    private void genererVariantesJouets(Product product) {
+        String[] ages = {"0-2 ans", "3-5 ans", "6-10 ans", "11+ ans"};
+        String[] couleurs = {"Multicolore", "Rouge", "Bleu", "Rose", "Vert"};
+        
+        int stockParVariante = Math.max(1, product.getStockQuantity() / ages.length);
+        
+        for (String age : ages) {
+            ProduitVariante variante = new ProduitVariante();
+            variante.setProduit(product);
+            variante.setAgeCible(age);
+            variante.setCouleur(couleurs[0]); // Multicolore par défaut
+            variante.setGenre("Unisexe");
+            variante.setPrixAjustement(BigDecimal.ZERO);
+            variante.setStock(stockParVariante);
+            variante.setSku(genererSKU(product, age, "Jouet"));
+            
+            produitVarianteService.creerVariante(variante);
+        }
+    }
+}

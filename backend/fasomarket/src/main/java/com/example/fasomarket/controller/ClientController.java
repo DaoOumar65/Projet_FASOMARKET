@@ -88,6 +88,29 @@ public class ClientController {
         }
     }
 
+    @GetMapping("/profil")
+    @Operation(summary = "Profil client", description = "Récupère le profil du client")
+    public ResponseEntity<?> getProfil(@RequestHeader("X-User-Id") UUID userId) {
+        try {
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+            
+            Map<String, Object> profil = new HashMap<>();
+            profil.put("id", user.getId());
+            profil.put("nomComplet", user.getFullName());
+            profil.put("telephone", user.getPhone());
+            profil.put("email", user.getEmail());
+            profil.put("role", user.getRole().name());
+            profil.put("estActif", user.getIsActive());
+            profil.put("estVerifie", user.getIsVerified());
+            profil.put("dateCreation", user.getCreatedAt());
+            
+            return ResponseEntity.ok(profil);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @GetMapping("/notifications/compteur")
     @Operation(summary = "Compteur notifications", description = "Nombre de notifications non lues")
     public ResponseEntity<?> getCompteurNotifications(@RequestHeader("X-User-Id") UUID clientId) {

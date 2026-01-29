@@ -81,4 +81,11 @@ public class Cart {
 
     public ProduitVariante getVariante() { return variante; }
     public void setVariante(ProduitVariante variante) { this.variante = variante; }
+    
+    public Long getVarianteId() { 
+        return variante != null ? variante.getId() : null; 
+    }
+    public void setVarianteId(Long varianteId) {
+        // Cette méthode sera utilisée par le service pour lier la variante
+    }
 }

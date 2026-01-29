@@ -529,26 +529,83 @@ public class AdminController {
     }
 
     @GetMapping("/produits")
-    @Operation(summary = "Gestion produits", description = "Liste tous les produits avec pagination")
+    @Operation(summary = "Gestion produits", description = "Liste TOUS les produits (actifs, masqués, bloqués) avec filtres")
     public ResponseEntity<?> obtenirProduits(
             @RequestHeader("X-User-Id") UUID adminId,
+            @RequestParam(required = false) String statut,
+            @RequestParam(required = false) String recherche,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "100") int size) {
         try {
             List<Product> produits = productRepository.findAll();
+            
+            // Filtrage par statut
+            if (statut != null && !statut.equals("tous")) {
+                switch (statut.toLowerCase()) {
+                    case "actifs":
+                        produits = produits.stream()
+                            .filter(p -> p.getIsActive() && (p.getStatus() == null || p.getStatus() == ProductStatus.ACTIVE))
+                            .collect(java.util.stream.Collectors.toList());
+                        break;
+                    case "masques":
+                        produits = produits.stream()
+                            .filter(p -> !p.getIsActive() || p.getStatus() == ProductStatus.HIDDEN)
+                            .collect(java.util.stream.Collectors.toList());
+                        break;
+                    case "bloques":
+                        produits = produits.stream()
+                            .filter(p -> p.getStatus() == ProductStatus.BLOCKED)
+                            .collect(java.util.stream.Collectors.toList());
+                        break;
+                }
+            }
+            
+            // Filtrage par recherche (nom, boutique, vendeur)
+            if (recherche != null && !recherche.trim().isEmpty()) {
+                String rechercheLC = recherche.toLowerCase();
+                produits = produits.stream()
+                    .filter(p -> 
+                        (p.getName() != null && p.getName().toLowerCase().contains(rechercheLC)) ||
+                        (p.getShop() != null && p.getShop().getName() != null && p.getShop().getName().toLowerCase().contains(rechercheLC)) ||
+                        (p.getShop() != null && p.getShop().getVendor() != null && p.getShop().getVendor().getUser() != null && 
+                         p.getShop().getVendor().getUser().getFullName() != null && p.getShop().getVendor().getUser().getFullName().toLowerCase().contains(rechercheLC))
+                    )
+                    .collect(java.util.stream.Collectors.toList());
+            }
+            
             List<ProductAdminDTO> produitsDTO = produits.stream()
                     .map(this::convertProductToAdminDTO)
                     .collect(java.util.stream.Collectors.toList());
+
+            // Statistiques en temps réel
+            long totalProduits = productRepository.count();
+            long produitsActifs = productRepository.findAll().stream()
+                .filter(p -> p.getIsActive() && (p.getStatus() == null || p.getStatus() == ProductStatus.ACTIVE))
+                .count();
+            long produitsMasques = productRepository.findAll().stream()
+                .filter(p -> !p.getIsActive() || p.getStatus() == ProductStatus.HIDDEN)
+                .count();
+            long produitsBloques = productRepository.findAll().stream()
+                .filter(p -> p.getStatus() == ProductStatus.BLOCKED)
+                .count();
 
             Map<String, Object> response = new HashMap<>();
             response.put("produits", produitsDTO);
             response.put("total", produitsDTO.size());
             response.put("page", page);
             response.put("size", size);
+            
+            // Statistiques
+            Map<String, Object> statistiques = new HashMap<>();
+            statistiques.put("total", totalProduits);
+            statistiques.put("actifs", produitsActifs);
+            statistiques.put("masques", produitsMasques);
+            statistiques.put("bloques", produitsBloques);
+            response.put("statistiques", statistiques);
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Erreur lors du chargement des produits");
+            return ResponseEntity.badRequest().body("Erreur lors du chargement des produits: " + e.getMessage());
         }
     }
 
@@ -591,21 +648,63 @@ public class AdminController {
     }
 
     @PutMapping("/produits/{id}/statut")
-    @Operation(summary = "Changer statut produit", description = "Active ou masque un produit")
+    @Operation(summary = "Changer statut produit", description = "Active, masque ou bloque un produit avec commentaire")
     public ResponseEntity<?> changerStatutProduit(
             @RequestHeader("X-User-Id") UUID adminId,
             @PathVariable UUID id,
-            @RequestParam ProductStatus statut) {
+            @RequestParam ProductStatus statut,
+            @RequestParam(required = false) String commentaire) {
         try {
             Product produit = productRepository.findById(id)
                     .orElseThrow(() -> new RuntimeException("Produit non trouvé"));
 
+            ProductStatus ancienStatut = produit.getStatus();
             produit.setStatus(statut);
+            
+            // Synchroniser avec isActive
+            if (statut == ProductStatus.ACTIVE) {
+                produit.setIsActive(true);
+            } else if (statut == ProductStatus.HIDDEN || statut == ProductStatus.BLOCKED) {
+                produit.setIsActive(false);
+            }
+            
             productRepository.save(produit);
+            
+            // Notifier le vendeur si le statut change vers BLOCKED
+            if (statut == ProductStatus.BLOCKED && ancienStatut != ProductStatus.BLOCKED) {
+                String message = "Votre produit '" + produit.getName() + "' a été bloqué par l'administration.";
+                if (commentaire != null && !commentaire.trim().isEmpty()) {
+                    message += " Raison: " + commentaire;
+                }
+                
+                if (produit.getShop() != null && produit.getShop().getVendor() != null) {
+                    notificationService.creerNotification(
+                        produit.getShop().getVendor().getUser().getId(),
+                        "Produit Bloqué",
+                        message
+                    );
+                }
+            }
+            
+            // Notifier le vendeur si le produit est débloqué
+            if (statut == ProductStatus.ACTIVE && ancienStatut == ProductStatus.BLOCKED) {
+                String message = "Votre produit '" + produit.getName() + "' a été débloqué et est maintenant actif.";
+                if (commentaire != null && !commentaire.trim().isEmpty()) {
+                    message += " Commentaire: " + commentaire;
+                }
+                
+                if (produit.getShop() != null && produit.getShop().getVendor() != null) {
+                    notificationService.creerNotification(
+                        produit.getShop().getVendor().getUser().getId(),
+                        "Produit Débloqué",
+                        message
+                    );
+                }
+            }
 
             return ResponseEntity.ok("Statut du produit mis à jour");
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Erreur lors de la mise à jour du statut");
+            return ResponseEntity.badRequest().body("Erreur lors de la mise à jour du statut: " + e.getMessage());
         }
     }
 
@@ -869,7 +968,20 @@ public class AdminController {
             List<NotificationResponse> notifications = notificationService.obtenirNotifications(adminId);
             return ResponseEntity.ok(notifications);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Erreur lors du chargement des notifications");
+            return ResponseEntity.badRequest().body("Erreur lors du chargement des notifications: " + e.getMessage());
+        }
+    }
+
+    @PutMapping("/notifications/{id}/lue")
+    @Operation(summary = "Marquer notification comme lue", description = "Marque une notification admin comme lue")
+    public ResponseEntity<?> marquerNotificationLue(
+            @RequestHeader("X-User-Id") UUID adminId,
+            @PathVariable UUID id) {
+        try {
+            notificationService.marquerCommeLue(adminId, id);
+            return ResponseEntity.ok("Notification marquée comme lue");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Erreur lors de la mise à jour: " + e.getMessage());
         }
     }
 

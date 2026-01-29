@@ -25,6 +25,9 @@ public class Category {
 
     @Column(name = "form_fields", columnDefinition = "TEXT")
     private String formFields; // JSON des champs spécifiques à la catégorie
+    
+    @Column(name = "variant_config", columnDefinition = "TEXT")
+    private String variantConfig; // JSON de configuration des variantes
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
@@ -55,6 +58,9 @@ public class Category {
 
     public String getFormFields() { return formFields; }
     public void setFormFields(String formFields) { this.formFields = formFields; }
+    
+    public String getVariantConfig() { return variantConfig; }
+    public void setVariantConfig(String variantConfig) { this.variantConfig = variantConfig; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

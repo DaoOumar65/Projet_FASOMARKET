@@ -7,6 +7,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.Optional;
@@ -34,4 +35,20 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
     // Méthode pour recommandations client
     @Query("SELECT p FROM Product p WHERE p.isActive = true ORDER BY p.createdAt DESC LIMIT 5")
     List<Product> findTop5ByOrderByCreatedAtDesc();
+    
+    // NOUVELLE méthode pour charger toutes les relations nécessaires
+    @Query("SELECT p FROM Product p " +
+           "LEFT JOIN FETCH p.shop s " +
+           "LEFT JOIN FETCH s.vendor v " +
+           "LEFT JOIN FETCH v.user u " +
+           "LEFT JOIN FETCH p.categoryEntity c " +
+           "WHERE p.id = :id")
+    Optional<Product> findByIdWithAllRelations(@Param("id") UUID id);
+    
+    // Garder l'ancienne pour la compatibilité
+    @Query("SELECT p FROM Product p " +
+           "LEFT JOIN FETCH p.shop " +
+           "LEFT JOIN FETCH p.categoryEntity " +
+           "WHERE p.id = :id")
+    Optional<Product> findByIdWithShopAndCategory(@Param("id") UUID id);
 }

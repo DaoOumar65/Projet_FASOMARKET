@@ -128,6 +128,12 @@ public class Product {
     @Column(name = "sales_count")
     private Long salesCount = 0L;
 
+    @Column(name = "nombre_ventes")
+    private Integer nombreVentes = 0;
+
+    @Column(name = "alert_threshold")
+    private Integer alertThreshold = 5;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -286,6 +292,12 @@ public class Product {
     public Long getSalesCount() { return salesCount; }
     public void setSalesCount(Long salesCount) { this.salesCount = salesCount; }
 
+    public Integer getNombreVentes() { return nombreVentes; }
+    public void setNombreVentes(Integer nombreVentes) { this.nombreVentes = nombreVentes; }
+
+    public Integer getAlertThreshold() { return alertThreshold; }
+    public void setAlertThreshold(Integer alertThreshold) { this.alertThreshold = alertThreshold; }
+
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 
@@ -305,7 +317,8 @@ public class Product {
     }
 
     public boolean isLowStock() {
-        return stockQuantity <= 5 && stockQuantity > 0;
+        Integer threshold = alertThreshold != null ? alertThreshold : 5;
+        return stockQuantity <= threshold && stockQuantity > 0;
     }
 
     public void incrementViews() {
