@@ -8,14 +8,14 @@ import org.springframework.web.bind.annotation.*;
 import java.util.*;
 
 @RestController
-@RequestMapping("/api/paiements")
+@RequestMapping("/api")
 @CrossOrigin(origins = "http://localhost:5173")
 public class PaymentController {
 
     @Autowired
     private PayDunyaService payDunyaService;
 
-    @PostMapping("/initier")
+    @PostMapping("/paiements/initier")
     public ResponseEntity<?> initierPaiement(@RequestBody PaymentRequest request) {
         try {
             Map<String, Object> response = payDunyaService.initierPaiementPayDunya(request);
@@ -25,6 +25,32 @@ public class PaymentController {
             error.put("success", false);
             error.put("message", "Erreur paiement: " + e.getMessage());
             return ResponseEntity.badRequest().body(error);
+        }
+    }
+
+    @PostMapping("/client/paiements/payer")
+    public ResponseEntity<?> payerCommande(
+            @RequestHeader("X-User-Id") UUID clientId,
+            @RequestBody PaymentRequest request) {
+        try {
+            request.setUserId(clientId.toString());
+            Map<String, Object> response = payDunyaService.initierPaiementPayDunya(request);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", "Erreur: " + e.getMessage()
+            ));
+        }
+    }
+
+    @GetMapping("/client/paiements/historique")
+    public ResponseEntity<?> historiqueClient(@RequestHeader("X-User-Id") UUID clientId) {
+        try {
+            List<Map<String, Object>> paiements = payDunyaService.obtenirPaiementsUtilisateur(clientId);
+            return ResponseEntity.ok(paiements);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Erreur: " + e.getMessage());
         }
     }
 

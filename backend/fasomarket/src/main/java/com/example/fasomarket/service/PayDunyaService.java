@@ -136,7 +136,7 @@ public class PayDunyaService {
     }
 
     private Map<String, Object> simulerPaiementTest(PaymentRequest request, Order order) {
-        String transactionId = "test_paydunya_" + System.currentTimeMillis();
+        String transactionId = "test_paydunya_" + UUID.randomUUID().toString().substring(0, 8);
 
         Payment payment = new Payment();
         payment.setOrder(order);
@@ -149,11 +149,13 @@ public class PayDunyaService {
 
         Map<String, Object> result = new HashMap<>();
         result.put("success", true);
-        result.put("paymentUrl", "http://localhost:5173/paiement/test-paydunya?token=" + transactionId);
+        result.put("paymentUrl", "http://localhost:5173/paiement/test?token=" + transactionId + "&orderId=" + order.getId());
         result.put("transactionId", transactionId);
         result.put("commandeId", request.getCommandeId());
+        result.put("montant", request.getMontant());
         result.put("mode", "test");
         result.put("provider", "PayDunya");
+        result.put("message", "Mode TEST - Utilisez les endpoints /simuler-succes ou /simuler-echec");
 
         return result;
     }
@@ -164,8 +166,12 @@ public class PayDunyaService {
             String status = (String) webhookData.get("status");
             String transactionId = (String) webhookData.get("invoice_token");
 
+            if (transactionId == null || transactionId.isEmpty()) {
+                throw new RuntimeException("Transaction ID manquant dans le webhook");
+            }
+
             Payment payment = paymentRepository.findByTransactionId(transactionId)
-                    .orElseThrow(() -> new RuntimeException("Paiement non trouvé"));
+                    .orElseThrow(() -> new RuntimeException("Paiement non trouvé pour: " + transactionId));
 
             if ("completed".equals(status)) {
                 payment.setStatus(PaymentStatus.COMPLETED);
@@ -173,19 +179,29 @@ public class PayDunyaService {
                 payment.getOrder().setStatus(OrderStatus.PAID);
 
                 // Générer facture
-                invoiceService.genererFacture(payment.getOrder(), payment);
+                try {
+                    invoiceService.genererFacture(payment.getOrder(), payment);
+                } catch (Exception e) {
+                    System.err.println("Erreur génération facture: " + e.getMessage());
+                }
 
                 // Notification
-                orderNotificationService.notifierPaiementReussi(payment.getOrder(), payment);
+                try {
+                    orderNotificationService.notifierPaiementReussi(payment.getOrder(), payment);
+                } catch (Exception e) {
+                    System.err.println("Erreur notification: " + e.getMessage());
+                }
 
             } else if ("cancelled".equals(status) || "failed".equals(status)) {
                 payment.setStatus(PaymentStatus.FAILED);
+                payment.getOrder().setStatus(OrderStatus.CANCELLED);
             }
 
             paymentRepository.save(payment);
             orderRepository.save(payment.getOrder());
 
         } catch (Exception e) {
+            System.err.println("Erreur traitement webhook PayDunya: " + e.getMessage());
             throw new RuntimeException("Erreur traitement webhook PayDunya: " + e.getMessage());
         }
     }

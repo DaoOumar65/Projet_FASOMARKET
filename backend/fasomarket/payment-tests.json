@@ -1,0 +1,83 @@
+{
+  "name": "FasoMarket - Tests Paiement",
+  "requests": [
+    {
+      "name": "1. Initier Paiement",
+      "method": "POST",
+      "url": "http://localhost:8081/api/paiements/initier",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "commandeId": "{{COMMANDE_ID}}",
+        "userId": "{{USER_ID}}",
+        "montant": 15000,
+        "modePaiement": "ORANGE_MONEY",
+        "numeroTelephone": "+22670123456",
+        "email": "client@example.com",
+        "nomClient": "Jean Dupont"
+      }
+    },
+    {
+      "name": "2. Payer Commande (Client)",
+      "method": "POST",
+      "url": "http://localhost:8081/api/client/paiements/payer",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-User-Id": "{{CLIENT_ID}}"
+      },
+      "body": {
+        "commandeId": "{{COMMANDE_ID}}",
+        "montant": 15000,
+        "modePaiement": "ORANGE_MONEY",
+        "numeroTelephone": "+22670123456",
+        "email": "client@example.com",
+        "nomClient": "Jean Dupont"
+      }
+    },
+    {
+      "name": "3. Simuler Succès",
+      "method": "POST",
+      "url": "http://localhost:8081/api/paiements/simuler-succes/{{TRANSACTION_ID}}",
+      "headers": {}
+    },
+    {
+      "name": "4. Simuler Échec",
+      "method": "POST",
+      "url": "http://localhost:8081/api/paiements/simuler-echec/{{TRANSACTION_ID}}",
+      "headers": {}
+    },
+    {
+      "name": "5. Vérifier Statut",
+      "method": "GET",
+      "url": "http://localhost:8081/api/paiements/statut/{{TRANSACTION_ID}}",
+      "headers": {}
+    },
+    {
+      "name": "6. Historique Paiements Client",
+      "method": "GET",
+      "url": "http://localhost:8081/api/client/paiements/historique",
+      "headers": {
+        "X-User-Id": "{{CLIENT_ID}}"
+      }
+    },
+    {
+      "name": "7. Webhook PayDunya (Simulation)",
+      "method": "POST",
+      "url": "http://localhost:8081/api/paiements/webhook",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "status": "completed",
+        "invoice_token": "{{TRANSACTION_ID}}"
+      }
+    }
+  ],
+  "variables": {
+    "COMMANDE_ID": "Remplacer par un ID de commande valide",
+    "USER_ID": "Remplacer par un ID utilisateur valide",
+    "CLIENT_ID": "Remplacer par un ID client valide",
+    "TRANSACTION_ID": "Sera retourné après initiation du paiement"
+  }
+}

@@ -18,11 +18,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.math.BigDecimal;
+import java.util.Comparator;
 import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/public")
-@CrossOrigin(origins = "*")
 public class PublicController {
 
     @Autowired
@@ -35,15 +35,26 @@ public class PublicController {
     private CategoryRepository categoryRepository;
 
     @Autowired
+    private ReviewRepository reviewRepository;
+
+    @Autowired
     private ProduitVarianteService produitVarianteService;
 
     // Boutiques publiques (seulement ACTIVE)
     @GetMapping("/boutiques")
     public ResponseEntity<?> getBoutiques(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) Boolean recommended) {
         try {
             List<Shop> shops = shopRepository.findByStatus(ShopStatus.ACTIVE);
+            if (Boolean.TRUE.equals(recommended)) {
+                shops = shops.stream()
+                        .sorted(Comparator.comparing(Shop::getRating, Comparator.nullsLast(Comparator.reverseOrder()))
+                                .thenComparing(Shop::getReviewsCount, Comparator.nullsLast(Comparator.reverseOrder())))
+                        .limit(size)
+                        .toList();
+            }
             List<BoutiquePublicDTO> boutiques = shops.stream()
                     .map(this::convertToDTO)
                     .collect(Collectors.toList());
@@ -84,6 +95,7 @@ public class PublicController {
             @RequestParam(required = false) String categorie,
             @RequestParam(required = false) Double prixMin,
             @RequestParam(required = false) Double prixMax,
+            @RequestParam(required = false) Boolean featured,
             @RequestParam(required = false) String q) {
 
         Pageable pageable = PageRequest.of(page, size);
@@ -102,6 +114,12 @@ public class PublicController {
             produits = produits.stream()
                     .filter(p -> (prixMin == null || p.getPrice().doubleValue() >= prixMin) &&
                             (prixMax == null || p.getPrice().doubleValue() <= prixMax))
+                    .toList();
+        }
+
+        if (Boolean.TRUE.equals(featured)) {
+            produits = produits.stream()
+                    .filter(p -> Boolean.TRUE.equals(p.getFeatured()))
                     .toList();
         }
 
@@ -183,6 +201,34 @@ public class PublicController {
     public ResponseEntity<List<Category>> getCategories() {
         List<Category> categories = categoryRepository.findAll();
         return ResponseEntity.ok(categories);
+    }
+
+    @GetMapping("/accueil")
+    public ResponseEntity<?> getAccueil() {
+        List<Category> categories = categoryRepository.findByIsActiveTrueOrderByNameAsc()
+                .stream()
+                .limit(8)
+                .toList();
+
+        List<ProductPublicDTO> produitsTendance = productRepository.findByIsActiveTrue().stream()
+                .filter(p -> Boolean.TRUE.equals(p.getFeatured()) || Boolean.TRUE.equals(p.getAvailable()))
+                .sorted(Comparator.comparing(Product::getSalesCount, Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(Product::getReviewsCount, Comparator.nullsLast(Comparator.reverseOrder())))
+                .limit(12)
+                .map(this::convertProductToDTO)
+                .toList();
+
+        List<BoutiquePublicDTO> boutiquesPopulaires = shopRepository.findByStatus(ShopStatus.ACTIVE).stream()
+                .sorted(Comparator.comparing(Shop::getRating, Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(Shop::getReviewsCount, Comparator.nullsLast(Comparator.reverseOrder())))
+                .limit(10)
+                .map(this::convertToDTO)
+                .toList();
+
+        return ResponseEntity.ok(Map.of(
+                "categories", categories,
+                "produitsTendance", produitsTendance,
+                "boutiquesPopulaires", boutiquesPopulaires));
     }
 
     // Recherche globale
@@ -302,5 +348,92 @@ public class PublicController {
         dto.setSaison(variante.getSaison());
         
         return dto;
+    }
+
+    @GetMapping("/produits/{id}/reviews")
+    public ResponseEntity<?> getReviews(@PathVariable String id) {
+        try {
+            List<Map<String, Object>> reviews = new java.util.ArrayList<>();
+            
+            List<Review> reviewEntities = reviewRepository.findByProduitIdAndModereTrue(id);
+            
+            for (Review review : reviewEntities) {
+                Map<String, Object> reviewMap = new java.util.HashMap<>();
+                reviewMap.put("id", review.getId());
+                reviewMap.put("note", review.getNote() != null ? review.getNote() : 5);
+                reviewMap.put("titre", review.getTitre() != null ? review.getTitre() : "");
+                reviewMap.put("commentaire", review.getCommentaire() != null ? review.getCommentaire() : "");
+                reviewMap.put("recommande", review.getRecommande() != null ? review.getRecommande() : true);
+                reviewMap.put("dateCreation", review.getDateCreation() != null ? review.getDateCreation().toString() : "");
+                reviewMap.put("votesUtiles", review.getVotesUtiles() != null ? review.getVotesUtiles() : 0);
+                reviewMap.put("votesInutiles", review.getVotesInutiles() != null ? review.getVotesInutiles() : 0);
+                reviewMap.put("modere", true);
+                reviewMap.put("signale", review.getSignale() != null ? review.getSignale() : false);
+                
+                Map<String, Object> utilisateur = new java.util.HashMap<>();
+                if (review.getUtilisateur() != null) {
+                    utilisateur.put("id", review.getUtilisateur().getId());
+                    utilisateur.put("nom", review.getUtilisateur().getFullName() != null ? review.getUtilisateur().getFullName() : "Utilisateur");
+                } else {
+                    utilisateur.put("id", "anonymous");
+                    utilisateur.put("nom", "Utilisateur");
+                }
+                reviewMap.put("utilisateur", utilisateur);
+                
+                if (review.getReponseVendeur() != null && !review.getReponseVendeur().trim().isEmpty()) {
+                    reviewMap.put("reponseVendeur", review.getReponseVendeur());
+                }
+                
+                reviews.add(reviewMap);
+            }
+            
+            return ResponseEntity.ok(reviews);
+            
+        } catch (Exception e) {
+            return ResponseEntity.ok(new java.util.ArrayList<>());
+        }
+    }
+
+    @GetMapping("/produits/{id}/reviews/stats")
+    public ResponseEntity<?> getReviewsStats(@PathVariable String id) {
+        try {
+            Map<String, Object> stats = new java.util.HashMap<>();
+            
+            List<Review> reviews = reviewRepository.findByProduitIdAndModereTrue(id);
+            
+            if (reviews.isEmpty()) {
+                stats.put("moyenne", 0.0);
+                stats.put("total", 0);
+                stats.put("repartition", Map.of("5", 0, "4", 0, "3", 0, "2", 0, "1", 0));
+                return ResponseEntity.ok(stats);
+            }
+            
+            double somme = reviews.stream().mapToInt(r -> r.getNote() != null ? r.getNote() : 5).sum();
+            double moyenne = somme / reviews.size();
+            
+            Map<String, Long> repartition = reviews.stream()
+                .collect(Collectors.groupingBy(
+                    r -> String.valueOf(r.getNote() != null ? r.getNote() : 5),
+                    Collectors.counting()
+                ));
+            
+            Map<String, Object> repartitionComplete = new java.util.HashMap<>();
+            for (int i = 1; i <= 5; i++) {
+                repartitionComplete.put(String.valueOf(i), repartition.getOrDefault(String.valueOf(i), 0L));
+            }
+            
+            stats.put("moyenne", Math.round(moyenne * 10.0) / 10.0);
+            stats.put("total", reviews.size());
+            stats.put("repartition", repartitionComplete);
+            
+            return ResponseEntity.ok(stats);
+            
+        } catch (Exception e) {
+            Map<String, Object> fallback = new java.util.HashMap<>();
+            fallback.put("moyenne", 4.0);
+            fallback.put("total", 0);
+            fallback.put("repartition", Map.of("5", 0, "4", 0, "3", 0, "2", 0, "1", 0));
+            return ResponseEntity.ok(fallback);
+        }
     }
 }

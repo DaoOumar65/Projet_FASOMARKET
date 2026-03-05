@@ -168,7 +168,13 @@ mvn spring-boot:run
 
 | Méthode | Endpoint | Description |
 |---------|----------|-------------|
-| POST | `/api/paiements/payer` | Payer une commande |
+| POST | `/api/paiements/initier` | Initier un paiement |
+| POST | `/api/client/paiements/payer` | Payer une commande (client) |
+| GET | `/api/client/paiements/historique` | Historique paiements client |
+| POST | `/api/paiements/webhook` | Webhook PayDunya (callback) |
+| GET | `/api/paiements/statut/{transactionId}` | Vérifier statut paiement |
+| POST | `/api/paiements/simuler-succes/{transactionId}` | Simuler succès (MODE TEST) |
+| POST | `/api/paiements/simuler-echec/{transactionId}` | Simuler échec (MODE TEST) |
 
 ### Notifications
 
