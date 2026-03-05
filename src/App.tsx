@@ -26,7 +26,6 @@ import AdminParametres from './pages/AdminParametres';
 import VendeurBoutique from './pages/VendeurBoutique';
 import VendeurProduits from './pages/VendeurProduits';
 import VendeurCommandes from './pages/VendeurCommandes';
-import VendeurCommandesTest from './pages/VendeurCommandesTest';
 import RecupererCommandes from './pages/RecupererCommandes';
 import RecupererCommandesAPI from './pages/RecupererCommandesAPI';
 import VendeurAnalytics from './pages/VendeurAnalytics';
@@ -61,7 +60,6 @@ import Categories from './pages/Categories';
 import Boutiques from './pages/Boutiques';
 import DetailBoutique from './pages/DetailBoutique';
 import Produits from './pages/Produits';
-import TestAdresse from './pages/TestAdresse';
 import PaiementSimule from './pages/PaiementSimule';
 import Paiement from './pages/Paiement';
 import PaiementSucces from './pages/PaiementSucces';
@@ -79,7 +77,6 @@ function App() {
         <Routes>
           {/* Routes publiques avec Header */}
           <Route path="/" element={<><Header /><Accueil /></>} />
-          <Route path="/test-adresse" element={<><Header /><TestAdresse /></>} />
           <Route path="/connexion" element={<Connexion />} />
           <Route path="/inscription/client" element={<><Header /><InscriptionClient /></>} />
           <Route path="/inscription/vendeur" element={<><Header /><InscriptionVendeur /></>} />

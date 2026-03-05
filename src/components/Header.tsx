@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, ShoppingCart, User, Menu, X, LogOut, Settings, Package, Heart, MapPin, ShoppingBag } from 'lucide-react';
+import { Search, ShoppingCart, User, Menu, X, LogOut, Settings, Package, Heart, MapPin, ShoppingBag, ChevronDown } from 'lucide-react';
 import { useAuthStore } from '../store';
 import { usePanier } from '../hooks/usePanier';
 import NotificationDropdown from './NotificationDropdown';
@@ -19,7 +19,52 @@ export default function Header() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [boutiques, setBoutiques] = useState<any[]>([]);
+  const [produits, setProduits] = useState<any[]>([]);
   const navigate = useNavigate();
+
+  // Charger les données pour les dropdowns
+  useEffect(() => {
+    const chargerDonnees = async () => {
+      try {
+        // Catégories
+        const catsRes = await fetch('http://localhost:8081/api/public/categories').then(r => r.json()).catch(() => []);
+        setCategories(Array.isArray(catsRes) ? catsRes.slice(0, 5) : [
+          { id: 1, nom: 'Mode & Vêtements' },
+          { id: 2, nom: 'Électronique' },
+          { id: 3, nom: 'Alimentation' },
+          { id: 4, nom: 'Maison & Jardin' },
+          { id: 5, nom: 'Sport & Loisirs' }
+        ]);
+
+        // Boutiques
+        const boutiquesRes = await fetch('http://localhost:8081/api/public/boutiques').then(r => r.json()).catch(() => []);
+        setBoutiques(Array.isArray(boutiquesRes) ? boutiquesRes.slice(0, 5) : [
+          { id: 1, nom: 'Fashion Ouaga', description: 'Mode et accessoires' },
+          { id: 2, nom: 'TechStore BF', description: 'Électronique' },
+          { id: 3, nom: 'Marché Central', description: 'Alimentation' },
+          { id: 4, nom: 'Artisanat BF', description: 'Artisanat local' },
+          { id: 5, nom: 'Sport Plus', description: 'Articles de sport' }
+        ]);
+
+        // Produits populaires
+        const produitsRes = await fetch('http://localhost:8081/api/public/produits').then(r => r.json()).catch(() => []);
+        setProduits(Array.isArray(produitsRes) ? produitsRes.slice(0, 5) : [
+          { id: 1, nom: 'Smartphone Samsung', prix: 180000 },
+          { id: 2, nom: 'Robe Traditionnelle', prix: 25000 },
+          { id: 3, nom: 'Ordinateur Portable', prix: 350000 },
+          { id: 4, nom: 'Chaussures Nike', prix: 45000 },
+          { id: 5, nom: 'Sac à Main', prix: 15000 }
+        ]);
+      } catch (error) {
+        console.error('Erreur chargement données dropdown:', error);
+      }
+    };
+    
+    chargerDonnees();
+  }, []);
 
   const getTotalItems = () => {
     if (!Array.isArray(panierItems)) return 0;
@@ -58,7 +103,7 @@ export default function Header() {
       boxShadow: 'var(--shadow)', 
       position: 'sticky', 
       top: 0, 
-      zIndex: 50 
+      zIndex: 100 
     }}>
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', height: '64px' }}>
@@ -90,49 +135,189 @@ export default function Header() {
           </Link>
 
           {/* Navigation desktop */}
-          <nav style={{ display: 'flex', alignItems: 'center', gap: '24px', flexShrink: 0 }}>
-            <Link 
-              to="/produits" 
-              style={{ 
-                color: 'var(--text-secondary)', 
-                textDecoration: 'none', 
-                fontWeight: '500',
-                fontSize: '16px',
-                transition: 'color 0.2s'
-              }}
-              onMouseEnter={(e) => e.target.style.color = 'var(--blue-primary)'}
-              onMouseLeave={(e) => e.target.style.color = 'var(--text-secondary)'}
-            >
-              Produits
-            </Link>
-            <Link 
-              to="/boutiques" 
-              style={{ 
-                color: 'var(--text-secondary)', 
-                textDecoration: 'none', 
-                fontWeight: '500',
-                fontSize: '16px',
-                transition: 'color 0.2s'
-              }}
-              onMouseEnter={(e) => e.target.style.color = 'var(--blue-primary)'}
-              onMouseLeave={(e) => e.target.style.color = 'var(--text-secondary)'}
-            >
-              Boutiques
-            </Link>
-            <Link 
-              to="/categories" 
-              style={{ 
-                color: 'var(--text-secondary)', 
-                textDecoration: 'none', 
-                fontWeight: '500',
-                fontSize: '16px',
-                transition: 'color 0.2s'
-              }}
-              onMouseEnter={(e) => e.target.style.color = 'var(--blue-primary)'}
-              onMouseLeave={(e) => e.target.style.color = 'var(--text-secondary)'}
-            >
-              Catégories
-            </Link>
+          <nav style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+            {[
+              { 
+                to: '/produits', 
+                label: 'Produits',
+                dropdown: produits.map(p => ({ 
+                  to: `/produit/${p.id}`, 
+                  label: p.nom, 
+                  subtitle: `${p.prix?.toLocaleString()} FCFA` 
+                }))
+              },
+              { 
+                to: '/boutiques', 
+                label: 'Boutiques',
+                dropdown: boutiques.map(b => ({ 
+                  to: `/boutique/${b.id}`, 
+                  label: b.nom, 
+                  subtitle: b.description 
+                }))
+              },
+              { 
+                to: '/categories', 
+                label: 'Catégories',
+                dropdown: categories.map(c => ({ 
+                  to: `/produits?categorie=${c.nom}`, 
+                  label: c.nom 
+                }))
+              }
+            ].map((item, index) => (
+              <div 
+                key={index}
+                style={{ position: 'relative' }}
+                onMouseEnter={() => setActiveDropdown(item.label)}
+                onMouseLeave={() => setActiveDropdown(null)}
+              >
+                <Link 
+                  to={item.to} 
+                  style={{ 
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '10px 16px',
+                    color: 'var(--text-secondary)', 
+                    textDecoration: 'none', 
+                    fontWeight: '500',
+                    fontSize: '15px',
+                    borderRadius: '8px',
+                    transition: 'all 0.2s ease',
+                    backgroundColor: activeDropdown === item.label ? 'var(--bg-tertiary)' : 'transparent'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.color = 'var(--blue-primary)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.color = 'var(--text-secondary)';
+                  }}
+                >
+                  {item.label}
+                  <ChevronDown size={14} style={{ 
+                    transform: activeDropdown === item.label ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.2s ease'
+                  }} />
+                </Link>
+                
+                {/* Dropdown Menu */}
+                {activeDropdown === item.label && item.dropdown.length > 0 && (
+                  <div 
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: '0',
+                      marginTop: '4px',
+                      backgroundColor: 'white',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '12px',
+                      boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
+                      minWidth: '280px',
+                      zIndex: 200,
+                      padding: '8px 0'
+                    }}
+                    onMouseEnter={() => setActiveDropdown(item.label)}
+                    onMouseLeave={() => setActiveDropdown(null)}
+                  >
+                    <div style={{
+                      padding: '8px 16px',
+                      borderBottom: '1px solid #e2e8f0',
+                      marginBottom: '8px'
+                    }}>
+                      <span style={{
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        color: '#6b7280',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px'
+                      }}>
+                        {item.label} populaires
+                      </span>
+                    </div>
+                    {item.dropdown.map((dropItem, idx) => (
+                      <Link
+                        key={idx}
+                        to={dropItem.to}
+                        style={{
+                          display: 'block',
+                          padding: '14px 20px',
+                          color: '#374151',
+                          textDecoration: 'none',
+                          transition: 'all 0.2s ease',
+                          borderRadius: '8px',
+                          margin: '2px 8px'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.backgroundColor = '#f1f5f9';
+                          e.target.style.color = '#2563eb';
+                          e.target.style.transform = 'translateX(4px)';
+                          e.target.style.boxShadow = '0 2px 8px rgba(37, 99, 235, 0.1)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.backgroundColor = 'transparent';
+                          e.target.style.color = '#374151';
+                          e.target.style.transform = 'translateX(0px)';
+                          e.target.style.boxShadow = 'none';
+                        }}
+                      >
+                        <div style={{ 
+                          fontSize: '14px', 
+                          fontWeight: '600', 
+                          marginBottom: '3px',
+                          transition: 'color 0.2s ease'
+                        }}>
+                          {dropItem.label}
+                        </div>
+                        {dropItem.subtitle && (
+                          <div style={{ 
+                            fontSize: '12px', 
+                            color: '#6b7280',
+                            transition: 'color 0.2s ease'
+                          }}>
+                            {dropItem.subtitle}
+                          </div>
+                        )}
+                      </Link>
+                    ))}
+                    <div style={{
+                      borderTop: '1px solid #e2e8f0',
+                      marginTop: '8px',
+                      padding: '8px 16px'
+                    }}>
+                      <Link
+                        to={item.to}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px',
+                          padding: '12px 16px',
+                          backgroundColor: '#2563eb',
+                          color: 'white',
+                          textDecoration: 'none',
+                          borderRadius: '8px',
+                          fontSize: '14px',
+                          fontWeight: '600',
+                          transition: 'all 0.2s ease',
+                          margin: '0 8px'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.backgroundColor = '#1d4ed8';
+                          e.target.style.transform = 'translateY(-1px)';
+                          e.target.style.boxShadow = '0 4px 12px rgba(29, 78, 216, 0.3)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.backgroundColor = '#2563eb';
+                          e.target.style.transform = 'translateY(0px)';
+                          e.target.style.boxShadow = 'none';
+                        }}
+                      >
+                        Voir tout →
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
           </nav>
 
           {/* Actions utilisateur */}
@@ -427,6 +612,7 @@ export default function Header() {
           onClick={() => {
             setIsUserMenuOpen(false);
             setIsMenuOpen(false);
+            setActiveDropdown(null);
           }}
         />
       )}

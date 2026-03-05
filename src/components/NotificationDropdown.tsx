@@ -4,10 +4,20 @@ import { useNotifications } from '../hooks/useNotifications';
 
 export default function NotificationDropdown() {
   const [isOpen, setIsOpen] = useState(false);
-  const { notifications, nombreNonLues, marquerCommeLu } = useNotifications();
+  
+  // Récupérer les infos utilisateur depuis localStorage ou contexte
+  const userId = localStorage.getItem('userId') || 'guest';
+  const userRole = (localStorage.getItem('userRole') as 'CLIENT' | 'VENDEUR' | 'ADMIN') || 'CLIENT';
+  
+  const { notifications, stats, markAsRead } = useNotifications({
+    userId,
+    userRole,
+    enableSound: false,
+    enableBrowserNotifications: false
+  });
 
   const handleNotificationClick = (notificationId: string) => {
-    marquerCommeLu(notificationId);
+    markAsRead(notificationId);
   };
 
   return (
@@ -27,7 +37,7 @@ export default function NotificationDropdown() {
         onMouseLeave={(e) => (e.target as HTMLElement).style.backgroundColor = 'transparent'}
       >
         <Bell size={20} />
-        {nombreNonLues > 0 && (
+        {stats.nonLues > 0 && (
           <span style={{
             position: 'absolute',
             top: '2px',
@@ -44,7 +54,7 @@ export default function NotificationDropdown() {
             justifyContent: 'center',
             padding: '0 4px'
           }}>
-            {nombreNonLues > 99 ? '99+' : nombreNonLues}
+            {stats.nonLues > 99 ? '99+' : stats.nonLues}
           </span>
         )}
       </button>
@@ -84,7 +94,7 @@ export default function NotificationDropdown() {
               alignItems: 'center'
             }}>
               <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#111827', margin: 0 }}>
-                Notifications ({nombreNonLues})
+                Notifications ({stats.nonLues})
               </h3>
               <button
                 onClick={() => setIsOpen(false)}
@@ -133,14 +143,14 @@ export default function NotificationDropdown() {
                           margin: '0 0 4px 0',
                           fontWeight: notification.lu ? '400' : '500'
                         }}>
-                          {notification.message}
+                          {notification.titre || notification.message}
                         </p>
                         <p style={{
                           fontSize: '12px',
                           color: '#6b7280',
                           margin: 0
                         }}>
-                          {new Date(notification.createdAt).toLocaleString('fr-FR')}
+                          {new Date(notification.dateCreation).toLocaleString('fr-FR')}
                         </p>
                       </div>
                     </div>

@@ -84,10 +84,15 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       localStorage.removeItem('user');
       set({ user: null, isAuthenticated: false });
       
-      if (error.response?.status === 400) {
-        throw new Error('Identifiants incorrects');
-      } else if (error.response?.status === 403) {
+      if (error.response?.status === 403) {
+        const errorData = error.response?.data;
+        if (errorData?.message?.includes('bloqué') || errorData?.error?.includes('bloqué') || 
+            errorData?.message?.includes('suspendu') || errorData?.message?.includes('désactivé')) {
+          throw new Error('Votre compte a été suspendu. Contactez l\'administration pour plus d\'informations.');
+        }
         throw new Error('Accès refusé');
+      } else if (error.response?.status === 400 || error.response?.status === 401) {
+        throw new Error('Téléphone ou mot de passe incorrect');
       } else {
         throw new Error(error.message || 'Erreur de connexion. Vérifiez votre connexion internet.');
       }

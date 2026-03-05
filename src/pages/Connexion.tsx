@@ -19,7 +19,21 @@ const Connexion: React.FC = () => {
       toast.success('Connexion réussie !');
       navigate('/dashboard');
     } catch (error: any) {
-      toast.error(error.message || 'Erreur de connexion');
+      const errorMessage = error.message || 'Erreur de connexion';
+      
+      // Message spécifique pour compte bloqué
+      if (errorMessage.includes('suspendu')) {
+        toast.error(errorMessage, {
+          duration: 6000,
+          style: {
+            backgroundColor: '#fef2f2',
+            color: '#dc2626',
+            border: '1px solid #fecaca'
+          }
+        });
+      } else {
+        toast.error(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
